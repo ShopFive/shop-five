@@ -2,21 +2,19 @@
 
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginForm() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // If already logged in, redirect to home
     if (status === 'authenticated') {
       router.push('/');
     }
 
-    // Check for error in URL
     const errorParam = searchParams.get('error');
     if (errorParam === 'AccessDenied') {
       setError('Access denied. Your email is not authorized to access this application.');
@@ -49,9 +47,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       <div className="max-w-md w-full mx-4">
-        {/* Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          {/* Logo/Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-4">
               <span className="text-3xl">👕</span>
@@ -64,7 +60,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
               <div className="flex items-start gap-3">
@@ -77,7 +72,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Google Sign In Button */}
           <button
             onClick={handleGoogleSignIn}
             className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 hover:border-gray-400 rounded-xl font-semibold text-gray-700 transition-all duration-200 hover:shadow-md group"
@@ -105,7 +99,6 @@ export default function LoginPage() {
             </span>
           </button>
 
-          {/* Info */}
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
             <div className="flex items-start gap-2">
               <span className="text-lg">ℹ️</span>
@@ -116,11 +109,25 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center mt-6 text-sm text-gray-600">
           <p>© 2025 Shop Five. All rights reserved.</p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-indigo-500"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
