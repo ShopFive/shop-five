@@ -42,7 +42,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
           >
             <div className="aspect-square relative">
               <Image
-                src={image.url}
+                src={image.afterUrl}
                 alt={image.name}
                 fill
                 className="object-cover"
