@@ -5,7 +5,7 @@ import GoogleProvider from "next-auth/providers/google";
 const ALLOWED_EMAILS = [
   'info@shop5.qa',        // ← غيّر هذا لإيميلك!
   'shop.qtr5@gmail.com',
-  'Remekas8@gmail.com',
+  'remekas8@gmail.com',
 ];
 
 const authOptions: NextAuthOptions = {
