@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 // Whitelist of allowed emails
@@ -6,10 +6,9 @@ const ALLOWED_EMAILS = [
   'info@shop5.qa',        // ← غيّر هذا لإيميلك!
   'shop.qtr5@gmail.com',
   'Remekas8@gmail.com',
-  // Add more emails here
 ];
 
-export const authOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
@@ -18,23 +17,14 @@ export const authOptions = {
   ],
   
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Check if email is in whitelist
+    async signIn({ user }) {
       const isAllowed = ALLOWED_EMAILS.includes(user.email || '');
-      
-      if (!isAllowed) {
-        // Reject sign in
-        return false;
-      }
-      
-      // Allow sign in
-      return true;
+      return isAllowed;
     },
     
     async session({ session, token }) {
-      // Add user info to session
       if (session.user) {
-        session.user.id = token.sub || '';
+        (session.user as any).id = token.sub || '';
       }
       return session;
     },
@@ -42,7 +32,7 @@ export const authOptions = {
   
   pages: {
     signIn: '/login',
-    error: '/login', // Error page
+    error: '/login',
   },
   
   secret: process.env.NEXTAUTH_SECRET,
