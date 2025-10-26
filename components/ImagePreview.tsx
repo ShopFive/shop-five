@@ -1,6 +1,9 @@
 'use client';
 
-import { UploadedImage } from '@/types';
+interface UploadedImage {
+  file: File;
+  preview: string;
+}
 import Image from 'next/image';
 
 interface ImagePreviewProps {
