@@ -55,7 +55,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
               </p>
               
               <button
-                onClick={() => handleDownload(image.downloadUrl, image.name)}
+                onClick={() => handleDownload(image.afterUrl, image.name)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#5b8def] hover:bg-[#4a7ad8] text-white rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />
