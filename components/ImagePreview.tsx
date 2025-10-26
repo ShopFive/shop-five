@@ -1,10 +1,12 @@
 'use client';
 
+import Image from 'next/image';
+
 interface UploadedImage {
+  id: string;        // ← أضفنا id
   file: File;
   preview: string;
 }
-import Image from 'next/image';
 
 interface ImagePreviewProps {
   images: UploadedImage[];
