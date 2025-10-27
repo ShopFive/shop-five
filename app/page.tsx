@@ -116,7 +116,7 @@ export default function HomePage() {
         });
       };
 
-      const resizeImage = (img: HTMLImageElement, maxWidth: number = 1024): { width: number, height: number } => {
+      const resizeImage = (img: HTMLImageElement, maxWidth: number = 800): { width: number, height: number } => {
         // Calculate new dimensions while maintaining aspect ratio
         let width = img.width;
         let height = img.height;
@@ -139,7 +139,7 @@ export default function HomePage() {
         if (frontImage && !noFront && frontPreview) {
           try {
             frontImg = await loadImage(frontPreview);
-            frontDims = resizeImage(frontImg, 1024); // Max width 1024px
+            frontDims = resizeImage(frontImg, 800); // Max width 800px
             console.log('Front image resized:', frontDims);
           } catch (error) {
             reject(new Error('Failed to load front image'));
@@ -151,7 +151,7 @@ export default function HomePage() {
         if (backImage && !noBack && backPreview) {
           try {
             backImg = await loadImage(backPreview);
-            backDims = resizeImage(backImg, 1024); // Max width 1024px
+            backDims = resizeImage(backImg, 800); // Max width 800px
             console.log('Back image resized:', backDims);
           } catch (error) {
             reject(new Error('Failed to load back image'));
@@ -208,7 +208,7 @@ export default function HomePage() {
           } else {
             reject(new Error('Failed to create blob'));
           }
-        }, 'image/jpeg', 0.85); // JPEG with 85% quality
+        }, 'image/jpeg', 0.75); // JPEG with 75% quality (smaller size)
       };
 
       processImages().catch(reject);
