@@ -116,7 +116,7 @@ export default function HomePage() {
         });
       };
 
-      const resizeImage = (img: HTMLImageElement, maxWidth: number = 800): { width: number, height: number } => {
+      const resizeImage = (img: HTMLImageElement, maxWidth: number = 2048): { width: number, height: number } => {
         // Calculate new dimensions while maintaining aspect ratio
         let width = img.width;
         let height = img.height;
@@ -139,7 +139,7 @@ export default function HomePage() {
         if (frontImage && !noFront && frontPreview) {
           try {
             frontImg = await loadImage(frontPreview);
-            frontDims = resizeImage(frontImg, 800); // Max width 800px
+            frontDims = resizeImage(frontImg, 2048); // Max width 2048px (high quality)
             console.log('Front image resized:', frontDims);
           } catch (error) {
             reject(new Error('Failed to load front image'));
@@ -151,7 +151,7 @@ export default function HomePage() {
         if (backImage && !noBack && backPreview) {
           try {
             backImg = await loadImage(backPreview);
-            backDims = resizeImage(backImg, 800); // Max width 800px
+            backDims = resizeImage(backImg, 2048); // Max width 2048px (high quality)
             console.log('Back image resized:', backDims);
           } catch (error) {
             reject(new Error('Failed to load back image'));
@@ -200,7 +200,7 @@ export default function HomePage() {
           ctx.fillText('NO BACK', frontDims.width + backDims.width / 2, maxHeight / 2);
         }
 
-        // Convert to blob with JPEG compression (smaller file size)
+        // Convert to blob with high quality JPEG
         canvas.toBlob((blob) => {
           if (blob) {
             console.log('✅ Merged image created, size:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
@@ -208,7 +208,7 @@ export default function HomePage() {
           } else {
             reject(new Error('Failed to create blob'));
           }
-        }, 'image/jpeg', 0.75); // JPEG with 75% quality (smaller size)
+        }, 'image/jpeg', 0.95); // JPEG with 95% quality (maximum quality)
       };
 
       processImages().catch(reject);
