@@ -93,74 +93,105 @@ export default function HomePage() {
         return;
       }
 
-      const frontImg = new Image();
-      const backImg = new Image();
-      
-      let frontLoaded = false;
-      let backLoaded = false;
+      // Check if at least one image exists
+      if ((!frontImage || noFront) && (!backImage || noBack)) {
+        reject(new Error('At least one image is required'));
+        return;
+      }
 
-      const checkBothLoaded = () => {
-        if (frontLoaded && backLoaded) {
-          // Set canvas size (side by side)
-          const maxHeight = Math.max(frontImg.height, backImg.height);
-          canvas.width = frontImg.width + backImg.width;
-          canvas.height = maxHeight;
+      const DEFAULT_SIZE = 512;
+      let frontWidth = DEFAULT_SIZE;
+      let frontHeight = DEFAULT_SIZE;
+      let backWidth = DEFAULT_SIZE;
+      let backHeight = DEFAULT_SIZE;
 
-          // Fill white background
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // Draw front image (left side)
-          ctx.drawImage(frontImg, 0, 0, frontImg.width, frontImg.height);
-
-          // Draw back image (right side)
-          ctx.drawImage(backImg, frontImg.width, 0, backImg.width, backImg.height);
-
-          // Convert to blob
-          canvas.toBlob((blob) => {
-            if (blob) {
-              resolve(blob);
-            } else {
-              reject(new Error('Failed to create blob'));
-            }
-          }, 'image/png');
-        }
+      const loadImage = (src: string): Promise<HTMLImageElement> => {
+        return new Promise((resolveImg, rejectImg) => {
+          const img = new Image();
+          img.onload = () => resolveImg(img);
+          img.onerror = () => rejectImg(new Error('Failed to load image'));
+          img.src = src;
+        });
       };
 
-      // Load front image
-      if (frontImage && !noFront) {
-        frontImg.onload = () => {
-          frontLoaded = true;
-          checkBothLoaded();
-        };
-        frontImg.onerror = () => reject(new Error('Failed to load front image'));
-        frontImg.src = frontPreview!;
-      } else {
-        // Create placeholder for "No Front"
-        frontImg.width = 512;
-        frontImg.height = 512;
-        frontLoaded = true;
-      }
+      const processImages = async () => {
+        let frontImg: HTMLImageElement | null = null;
+        let backImg: HTMLImageElement | null = null;
 
-      // Load back image
-      if (backImage && !noBack) {
-        backImg.onload = () => {
-          backLoaded = true;
-          checkBothLoaded();
-        };
-        backImg.onerror = () => reject(new Error('Failed to load back image'));
-        backImg.src = backPreview!;
-      } else {
-        // Create placeholder for "No Back"
-        backImg.width = 512;
-        backImg.height = 512;
-        backLoaded = true;
-      }
+        // Load front image if exists
+        if (frontImage && !noFront && frontPreview) {
+          try {
+            frontImg = await loadImage(frontPreview);
+            frontWidth = frontImg.width;
+            frontHeight = frontImg.height;
+          } catch (error) {
+            reject(new Error('Failed to load front image'));
+            return;
+          }
+        }
 
-      // If both are placeholders, resolve immediately
-      if ((noFront || !frontImage) && (noBack || !backImage)) {
-        reject(new Error('At least one image is required'));
-      }
+        // Load back image if exists
+        if (backImage && !noBack && backPreview) {
+          try {
+            backImg = await loadImage(backPreview);
+            backWidth = backImg.width;
+            backHeight = backImg.height;
+          } catch (error) {
+            reject(new Error('Failed to load back image'));
+            return;
+          }
+        }
+
+        // Calculate canvas size
+        const maxHeight = Math.max(frontHeight, backHeight);
+        const totalWidth = frontWidth + backWidth;
+        
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+
+        // Fill white background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw front image (left side) or placeholder
+        if (frontImg) {
+          ctx.drawImage(frontImg, 0, (maxHeight - frontHeight) / 2, frontWidth, frontHeight);
+        } else {
+          // Draw placeholder for "No Front"
+          ctx.fillStyle = '#F3F4F6';
+          ctx.fillRect(0, 0, frontWidth, maxHeight);
+          ctx.fillStyle = '#6B7280';
+          ctx.font = '24px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('NO FRONT', frontWidth / 2, maxHeight / 2);
+        }
+
+        // Draw back image (right side) or placeholder
+        if (backImg) {
+          ctx.drawImage(backImg, frontWidth, (maxHeight - backHeight) / 2, backWidth, backHeight);
+        } else {
+          // Draw placeholder for "No Back"
+          ctx.fillStyle = '#F3F4F6';
+          ctx.fillRect(frontWidth, 0, backWidth, maxHeight);
+          ctx.fillStyle = '#6B7280';
+          ctx.font = '24px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('NO BACK', frontWidth + backWidth / 2, maxHeight / 2);
+        }
+
+        // Convert to blob
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to create blob'));
+          }
+        }, 'image/png');
+      };
+
+      processImages().catch(reject);
     });
   };
 
