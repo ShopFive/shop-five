@@ -4,19 +4,39 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-// Initialize R2 client
-const r2Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
-
 export async function POST(request: NextRequest) {
   try {
     console.log('📤 Starting R2 upload...');
+    
+    // Log environment variables (for debugging)
+    console.log('Env check:', {
+      hasAccountId: !!process.env.R2_ACCOUNT_ID,
+      hasBucketName: !!process.env.R2_BUCKET_NAME,
+      hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,
+      hasPublicUrl: !!process.env.R2_PUBLIC_URL
+    });
+
+    // Validate environment variables
+    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_BUCKET_NAME || 
+        !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || 
+        !process.env.R2_PUBLIC_URL) {
+      console.error('❌ Missing R2 environment variables!');
+      return NextResponse.json(
+        { error: 'Server configuration error', details: 'R2 credentials not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Initialize R2 client inside the function
+    const r2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+    });
     
     const formData = await request.formData();
     const category = formData.get('category') as string;
@@ -45,10 +65,11 @@ export async function POST(request: NextRequest) {
     const fileName = `${category}/${timestamp}_${imageFile.name}`;
 
     console.log('☁️ Uploading to R2:', fileName);
+    console.log('Bucket:', process.env.R2_BUCKET_NAME);
 
     // Upload to R2
     const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME!,
+      Bucket: process.env.R2_BUCKET_NAME,
       Key: fileName,
       Body: buffer,
       ContentType: imageFile.type,
