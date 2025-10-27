@@ -99,7 +99,9 @@ export default function HomePage() {
         return;
       }
 
-      const DEFAULT_SIZE = 512;
+      // Reduced size for better memory handling
+      const MAX_WIDTH = 800;
+      const DEFAULT_SIZE = 800;
       let frontWidth = DEFAULT_SIZE;
       let frontHeight = DEFAULT_SIZE;
       let backWidth = DEFAULT_SIZE;
@@ -181,14 +183,15 @@ export default function HomePage() {
           ctx.fillText('NO BACK', frontWidth + backWidth / 2, maxHeight / 2);
         }
 
-        // Convert to blob
+        // Convert to blob with JPEG compression (smaller file size)
         canvas.toBlob((blob) => {
           if (blob) {
+            console.log('✅ Merged image created, size:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
             resolve(blob);
           } else {
             reject(new Error('Failed to create blob'));
           }
-        }, 'image/png');
+        }, 'image/jpeg', 0.85); // JPEG with 85% quality
       };
 
       processImages().catch(reject);
@@ -227,12 +230,12 @@ export default function HomePage() {
       // Create FormData
       const formData = new FormData();
       formData.append('category', selectedCategory);
-      formData.append('image_0', mergedBlob, `${selectedCategory}_merged_${Date.now()}.png`);
+      formData.append('image_0', mergedBlob, `${selectedCategory}_merged_${Date.now()}.jpg`);
       
       console.log('📤 Uploading to webhook...');
 
       // Upload
-      const response = await fetch('https://n8n.srv880249.hstgr.cloud/webhook/shop-five-upload', {
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
