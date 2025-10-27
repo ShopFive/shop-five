@@ -116,28 +116,43 @@ export default function HomePage() {
         });
       };
 
+      const resizeImage = (img: HTMLImageElement, maxWidth: number = 1024): { width: number, height: number } => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        return { width: Math.round(width), height: Math.round(height) };
+      };
+
       const processImages = async () => {
         let frontImg: HTMLImageElement | null = null;
         let backImg: HTMLImageElement | null = null;
+        let frontDims = { width: DEFAULT_SIZE, height: DEFAULT_SIZE };
+        let backDims = { width: DEFAULT_SIZE, height: DEFAULT_SIZE };
 
-        // Load front image if exists
+        // Load and resize front image if exists
         if (frontImage && !noFront && frontPreview) {
           try {
             frontImg = await loadImage(frontPreview);
-            frontWidth = frontImg.width;
-            frontHeight = frontImg.height;
+            frontDims = resizeImage(frontImg, 1024); // Max width 1024px
+            console.log('Front image resized:', frontDims);
           } catch (error) {
             reject(new Error('Failed to load front image'));
             return;
           }
         }
 
-        // Load back image if exists
+        // Load and resize back image if exists
         if (backImage && !noBack && backPreview) {
           try {
             backImg = await loadImage(backPreview);
-            backWidth = backImg.width;
-            backHeight = backImg.height;
+            backDims = resizeImage(backImg, 1024); // Max width 1024px
+            console.log('Back image resized:', backDims);
           } catch (error) {
             reject(new Error('Failed to load back image'));
             return;
@@ -145,11 +160,13 @@ export default function HomePage() {
         }
 
         // Calculate canvas size
-        const maxHeight = Math.max(frontHeight, backHeight);
-        const totalWidth = frontWidth + backWidth;
+        const maxHeight = Math.max(frontDims.height, backDims.height);
+        const totalWidth = frontDims.width + backDims.width;
         
         canvas.width = totalWidth;
         canvas.height = maxHeight;
+
+        console.log('Canvas size:', canvas.width, 'x', canvas.height);
 
         // Fill white background
         ctx.fillStyle = '#FFFFFF';
@@ -157,30 +174,30 @@ export default function HomePage() {
 
         // Draw front image (left side) or placeholder
         if (frontImg) {
-          ctx.drawImage(frontImg, 0, (maxHeight - frontHeight) / 2, frontWidth, frontHeight);
+          ctx.drawImage(frontImg, 0, (maxHeight - frontDims.height) / 2, frontDims.width, frontDims.height);
         } else {
           // Draw placeholder for "No Front"
           ctx.fillStyle = '#F3F4F6';
-          ctx.fillRect(0, 0, frontWidth, maxHeight);
+          ctx.fillRect(0, 0, frontDims.width, maxHeight);
           ctx.fillStyle = '#6B7280';
           ctx.font = '24px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('NO FRONT', frontWidth / 2, maxHeight / 2);
+          ctx.fillText('NO FRONT', frontDims.width / 2, maxHeight / 2);
         }
 
         // Draw back image (right side) or placeholder
         if (backImg) {
-          ctx.drawImage(backImg, frontWidth, (maxHeight - backHeight) / 2, backWidth, backHeight);
+          ctx.drawImage(backImg, frontDims.width, (maxHeight - backDims.height) / 2, backDims.width, backDims.height);
         } else {
           // Draw placeholder for "No Back"
           ctx.fillStyle = '#F3F4F6';
-          ctx.fillRect(frontWidth, 0, backWidth, maxHeight);
+          ctx.fillRect(frontDims.width, 0, backDims.width, maxHeight);
           ctx.fillStyle = '#6B7280';
           ctx.font = '24px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('NO BACK', frontWidth + backWidth / 2, maxHeight / 2);
+          ctx.fillText('NO BACK', frontDims.width + backDims.width / 2, maxHeight / 2);
         }
 
         // Convert to blob with JPEG compression (smaller file size)
