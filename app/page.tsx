@@ -196,6 +196,8 @@ export default function HomePage() {
   };
 
   const handleUpload = async () => {
+    console.log('🚀 Starting upload...');
+    
     if (!selectedCategory) {
       alert('Please select a category');
       return;
@@ -214,13 +216,20 @@ export default function HomePage() {
     setIsUploading(true);
 
     try {
+      console.log('📸 Merging images...');
+      console.log('Front:', frontImage ? frontImage.name : 'No Front');
+      console.log('Back:', backImage ? backImage.name : 'No Back');
+      
       // Merge images
       const mergedBlob = await mergeImages();
+      console.log('✅ Images merged successfully, blob size:', mergedBlob.size);
       
       // Create FormData
       const formData = new FormData();
       formData.append('category', selectedCategory);
       formData.append('image_0', mergedBlob, `${selectedCategory}_merged_${Date.now()}.png`);
+      
+      console.log('📤 Uploading to webhook...');
 
       // Upload
       const response = await fetch('https://n8n.srv880249.hstgr.cloud/webhook/shop-five-upload', {
@@ -228,8 +237,11 @@ export default function HomePage() {
         body: formData,
       });
 
+      console.log('📥 Response status:', response.status);
+
       if (response.ok) {
         const result = await response.json();
+        console.log('✅ Upload successful:', result);
         alert(`✅ ${result.message || 'Upload successful!'}`);
         
         // Reset form
@@ -241,11 +253,13 @@ export default function HomePage() {
         setNoBack(false);
         setSelectedCategory(null);
       } else {
-        throw new Error('Upload failed');
+        const errorText = await response.text();
+        console.error('❌ Server error:', errorText);
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('❌ Upload failed. Please try again.');
+      console.error('❌ Upload error:', error);
+      alert(`❌ Upload failed: ${error instanceof Error ? error.message : 'Please try again.'}`);
     } finally {
       setIsUploading(false);
     }
