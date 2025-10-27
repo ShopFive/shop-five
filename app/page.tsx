@@ -1,295 +1,446 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import PageNavButtons from '@/components/PageNavButtons';
-import CategoryCard from '@/components/CategoryCard';
-import UploadArea from '@/components/UploadArea';
-import ImagePreview from '@/components/ImagePreview';
-import ProgressBar from '@/components/ProgressBar';
-import SuccessScreen from '@/components/SuccessScreen';
-import { Category, CategoryOption, UploadedImage, UploadProgress, UploadResult } from '@/types/types';
+import { X } from 'lucide-react';
 
-const CATEGORIES: CategoryOption[] = [
+type Category = 'clothes' | 'caps' | 'shoes';
+
+interface CategoryCard {
+  id: Category;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+}
+
+const categories: CategoryCard[] = [
   {
     id: 'clothes',
-    name: 'CLOTHES',
-    icon: '👕',
+    title: 'CLOTHES',
     description: 'Upload clothing items',
+    icon: '👕',
+    color: 'from-blue-400 to-blue-600'
   },
   {
     id: 'caps',
-    name: 'CAPS',
-    icon: '🧢',
+    title: 'CAPS',
     description: 'Upload caps and hats',
+    icon: '🧢',
+    color: 'from-purple-400 to-purple-600'
   },
   {
     id: 'shoes',
-    name: 'SHOES',
-    icon: '👟',
+    title: 'SHOES',
     description: 'Upload footwear items',
-  },
+    icon: '👟',
+    color: 'from-pink-400 to-pink-600'
+  }
 ];
 
-export default function Home() {
+export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [frontImage, setFrontImage] = useState<File | null>(null);
+  const [backImage, setBackImage] = useState<File | null>(null);
+  const [frontPreview, setFrontPreview] = useState<string | null>(null);
+  const [backPreview, setBackPreview] = useState<string | null>(null);
+  const [noFront, setNoFront] = useState(false);
+  const [noBack, setNoBack] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const router = useRouter();
 
-  const handleCategorySelect = useCallback((category: Category) => {
-    setSelectedCategory(category);
-    setUploadedImages([]);
-    setUploadResult(null);
-    setUploadProgress(null);
-    
-    setTimeout(() => {
-      document.getElementById('upload-section')?.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }, 100);
-  }, []);
+  const frontInputRef = useRef<HTMLInputElement>(null);
+  const backInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFilesSelected = useCallback((files: File[]) => {
-    const newImages: UploadedImage[] = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      preview: URL.createObjectURL(file),
-    }));
-
-    setUploadedImages(prev => [...prev, ...newImages]);
-  }, []);
-
-  const handleRemoveImage = useCallback((id: string) => {
-    setUploadedImages(prev => {
-      const image = prev.find(img => img.id === id);
-      if (image) {
-        URL.revokeObjectURL(image.preview);
-      }
-      return prev.filter(img => img.id !== id);
-    });
-  }, []);
-
-  const simulateProgress = async (totalImages: number) => {
-    for (let i = 1; i <= totalImages; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setUploadProgress({
-        stage: 'generating',
-        progress: 50 + (i / totalImages) * 45,
-        currentImage: i,
-        totalImages,
-        message: `Processing image ${i} of ${totalImages}...`,
-      });
+  const handleFrontImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setFrontImage(file);
+      setFrontPreview(URL.createObjectURL(file));
+      setNoFront(false);
     }
   };
 
+  const handleBackImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setBackImage(file);
+      setBackPreview(URL.createObjectURL(file));
+      setNoBack(false);
+    }
+  };
+
+  const removeFrontImage = () => {
+    setFrontImage(null);
+    setFrontPreview(null);
+    if (frontInputRef.current) frontInputRef.current.value = '';
+  };
+
+  const removeBackImage = () => {
+    setBackImage(null);
+    setBackPreview(null);
+    if (backInputRef.current) backInputRef.current.value = '';
+  };
+
+  const mergeImages = async (): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Canvas not supported'));
+        return;
+      }
+
+      const frontImg = new Image();
+      const backImg = new Image();
+      
+      let frontLoaded = false;
+      let backLoaded = false;
+
+      const checkBothLoaded = () => {
+        if (frontLoaded && backLoaded) {
+          // Set canvas size (side by side)
+          const maxHeight = Math.max(frontImg.height, backImg.height);
+          canvas.width = frontImg.width + backImg.width;
+          canvas.height = maxHeight;
+
+          // Fill white background
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Draw front image (left side)
+          ctx.drawImage(frontImg, 0, 0, frontImg.width, frontImg.height);
+
+          // Draw back image (right side)
+          ctx.drawImage(backImg, frontImg.width, 0, backImg.width, backImg.height);
+
+          // Convert to blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create blob'));
+            }
+          }, 'image/png');
+        }
+      };
+
+      // Load front image
+      if (frontImage && !noFront) {
+        frontImg.onload = () => {
+          frontLoaded = true;
+          checkBothLoaded();
+        };
+        frontImg.onerror = () => reject(new Error('Failed to load front image'));
+        frontImg.src = frontPreview!;
+      } else {
+        // Create placeholder for "No Front"
+        frontImg.width = 512;
+        frontImg.height = 512;
+        frontLoaded = true;
+      }
+
+      // Load back image
+      if (backImage && !noBack) {
+        backImg.onload = () => {
+          backLoaded = true;
+          checkBothLoaded();
+        };
+        backImg.onerror = () => reject(new Error('Failed to load back image'));
+        backImg.src = backPreview!;
+      } else {
+        // Create placeholder for "No Back"
+        backImg.width = 512;
+        backImg.height = 512;
+        backLoaded = true;
+      }
+
+      // If both are placeholders, resolve immediately
+      if ((noFront || !frontImage) && (noBack || !backImage)) {
+        reject(new Error('At least one image is required'));
+      }
+    });
+  };
+
   const handleUpload = async () => {
-    if (!selectedCategory || uploadedImages.length === 0) return;
+    if (!selectedCategory) {
+      alert('Please select a category');
+      return;
+    }
+
+    if (!frontImage && !noFront) {
+      alert('Please upload a front image or check "No Front Image"');
+      return;
+    }
+
+    if (!backImage && !noBack) {
+      alert('Please upload a back image or check "No Back Image"');
+      return;
+    }
 
     setIsUploading(true);
-    setUploadProgress({
-      stage: 'uploading',
-      progress: 0,
-      message: 'Preparing images...',
-    });
 
     try {
+      // Merge images
+      const mergedBlob = await mergeImages();
+      
+      // Create FormData
       const formData = new FormData();
       formData.append('category', selectedCategory);
-      
-      uploadedImages.forEach((image, index) => {
-        formData.append(`image_${index}`, image.file);
-      });
+      formData.append('image_0', mergedBlob, `${selectedCategory}_merged_${Date.now()}.png`);
 
-      setUploadProgress({
-        stage: 'uploading',
-        progress: 30,
-        message: `Uploading ${uploadedImages.length} image${uploadedImages.length > 1 ? 's' : ''} to server...`,
-      });
-
-      const webhookURL = 'https://n8n.srv880249.hstgr.cloud/webhook/shop-five-upload';
-      
-      const response = await fetch(webhookURL, {
+      // Upload
+      const response = await fetch('https://n8n.srv880249.hstgr.cloud/webhook/shop-five-upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ ${result.message || 'Upload successful!'}`);
+        
+        // Reset form
+        setFrontImage(null);
+        setBackImage(null);
+        setFrontPreview(null);
+        setBackPreview(null);
+        setNoFront(false);
+        setNoBack(false);
+        setSelectedCategory(null);
+      } else {
         throw new Error('Upload failed');
       }
-
-      const result = await response.json();
-
-      setUploadProgress({
-        stage: 'processing',
-        progress: 50,
-        message: 'Processing images...',
-      });
-
-      await simulateProgress(uploadedImages.length);
-
-      setUploadProgress({
-        stage: 'complete',
-        progress: 100,
-        message: 'Upload complete! Preparing summary...',
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      setUploadResult({
-        success: true,
-        category: selectedCategory,
-        images: uploadedImages.map(img => ({
-          id: img.id,
-          preview: img.preview,
-          name: img.file.name,
-          size: img.file.size,
-        })),
-        totalCount: result.count || uploadedImages.length,
-        uploadedAt: new Date().toISOString(),
-        message: result.message || 'Images uploaded successfully!',
-      });
-
-      setUploadProgress(null);
-
     } catch (error) {
       console.error('Upload error:', error);
-      setUploadProgress({
-        stage: 'error',
-        progress: 0,
-        message: 'Upload failed. Please check your connection and try again.',
-      });
-      
-      setTimeout(() => {
-        setUploadProgress(null);
-      }, 4000);
+      alert('❌ Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleCancel = useCallback(() => {
-    if (confirm('Are you sure you want to cancel? All selected images will be removed.')) {
-      uploadedImages.forEach(img => URL.revokeObjectURL(img.preview));
-      setUploadedImages([]);
-      setSelectedCategory(null);
-      setUploadResult(null);
-      setUploadProgress(null);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [uploadedImages]);
-
-  const handleUploadMore = useCallback(() => {
-    if (uploadResult) {
-      uploadResult.images.forEach(img => URL.revokeObjectURL(img.preview));
-    }
-    
-    setUploadResult(null);
-    setUploadProgress(null);
-    setSelectedCategory(null);
-    setUploadedImages([]);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [uploadResult]);
-
-  const handleUploadToSameCategory = useCallback(() => {
-    if (uploadResult) {
-      uploadResult.images.forEach(img => URL.revokeObjectURL(img.preview));
-    }
-    
-    setUploadResult(null);
-    setUploadProgress(null);
-    setUploadedImages([]);
-    
-    setTimeout(() => {
-      document.getElementById('upload-section')?.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }, 100);
-  }, [uploadResult]);
-
-  if (uploadResult) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <PageNavButtons />
-        <SuccessScreen 
-          result={uploadResult}
-          onUploadMore={handleUploadMore}
-          onUploadToSameCategory={handleUploadToSameCategory}
-        />
-      </div>
-    );
-  }
+  const canUpload = selectedCategory && 
+    ((frontImage || noFront) && (backImage || noBack));
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
-      {/* Navigation Buttons */}
-      <PageNavButtons />
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        {/* Navigation Buttons */}
+        <div className="flex justify-center gap-4 mb-8">
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Upload
+          </button>
+          <button
+            onClick={() => router.push('/gallery')}
+            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Gallery
+          </button>
+        </div>
+
+        {/* Title */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
             Product Image Upload
           </h1>
-          <p className="text-gray-600">
-            Select a category and upload product images
+          <p className="text-gray-600 text-lg">
+            Select a category and upload front & back images
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {CATEGORIES.map((category) => (
-            <CategoryCard
+        {/* Category Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {categories.map((category) => (
+            <button
               key={category.id}
-              category={category}
-              isSelected={selectedCategory === category.id}
-              onSelect={() => handleCategorySelect(category.id)}
-            />
+              onClick={() => setSelectedCategory(category.id)}
+              className={`p-6 rounded-2xl border-2 transition-all duration-200 ${
+                selectedCategory === category.id
+                  ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-105'
+                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+              }`}
+            >
+              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${category.color} flex items-center justify-center mx-auto mb-4`}>
+                <span className="text-3xl">{category.icon}</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                {category.title}
+              </h3>
+              <p className="text-gray-600 text-sm">
+                {category.description}
+              </p>
+            </button>
           ))}
         </div>
 
-        {selectedCategory && !uploadProgress && (
-          <div id="upload-section" className="bg-white rounded-xl p-8 border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Upload Images to {selectedCategory.toUpperCase()}
-            </h2>
-            
-            <UploadArea onFilesSelected={handleFilesSelected} />
-            
-            <ImagePreview 
-              images={uploadedImages}
-              onRemove={handleRemoveImage}
-            />
+        {/* Image Upload Section */}
+        {selectedCategory && (
+          <div className="bg-white rounded-2xl p-8 border-2 border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              
+              {/* FRONT Image */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">F</span>
+                  Front View
+                </h3>
+                
+                <input
+                  ref={frontInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFrontImage}
+                  className="hidden"
+                  id="front-upload"
+                  disabled={noFront || isUploading}
+                />
 
-            {uploadedImages.length > 0 && (
-              <div className="mt-6 flex gap-3 justify-end">
-                <button
-                  onClick={handleCancel}
-                  disabled={isUploading}
-                  className="px-8 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpload}
-                  disabled={isUploading}
-                  className="px-8 py-3 bg-[#5b8def] hover:bg-[#4a7ad8] text-white font-semibold rounded-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-                >
-                  {isUploading ? 'Uploading...' : `Upload ${uploadedImages.length} Image${uploadedImages.length > 1 ? 's' : ''}`}
-                </button>
+                {frontPreview ? (
+                  <div className="relative aspect-square rounded-xl overflow-hidden border-2 border-blue-500">
+                    <img src={frontPreview} alt="Front" className="w-full h-full object-cover" />
+                    <button
+                      onClick={removeFrontImage}
+                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="front-upload"
+                    className={`aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                      noFront 
+                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
+                        : 'border-blue-400 hover:border-blue-500 hover:bg-blue-50'
+                    }`}
+                  >
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-700 font-semibold">Upload Front Image</p>
+                  </label>
+                )}
+
+                <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={noFront}
+                    onChange={(e) => {
+                      setNoFront(e.target.checked);
+                      if (e.target.checked) removeFrontImage();
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-600">No front image available</span>
+                </label>
               </div>
-            )}
-          </div>
-        )}
 
-        {uploadProgress && (
-          <div className="mb-8">
-            <ProgressBar progress={uploadProgress} />
+              {/* BACK Image */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold">B</span>
+                  Back View
+                </h3>
+                
+                <input
+                  ref={backInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBackImage}
+                  className="hidden"
+                  id="back-upload"
+                  disabled={noBack || isUploading}
+                />
+
+                {backPreview ? (
+                  <div className="relative aspect-square rounded-xl overflow-hidden border-2 border-purple-500">
+                    <img src={backPreview} alt="Back" className="w-full h-full object-cover" />
+                    <button
+                      onClick={removeBackImage}
+                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="back-upload"
+                    className={`aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                      noBack 
+                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
+                        : 'border-purple-400 hover:border-purple-500 hover:bg-purple-50'
+                    }`}
+                  >
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+                      <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-700 font-semibold">Upload Back Image</p>
+                  </label>
+                )}
+
+                <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={noBack}
+                    onChange={(e) => {
+                      setNoBack(e.target.checked);
+                      if (e.target.checked) removeBackImage();
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-600">No back image available</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Upload Button */}
+            <button
+              onClick={handleUpload}
+              disabled={!canUpload || isUploading}
+              className={`w-full py-4 rounded-xl font-semibold text-white transition-all duration-200 ${
+                !canUpload || isUploading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'
+              }`}
+            >
+              {isUploading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Uploading & Merging Images...
+                </span>
+              ) : (
+                'Upload & Process Images'
+              )}
+            </button>
+
+            {/* Info */}
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <span className="text-lg">ℹ️</span>
+                <p className="text-sm text-blue-700">
+                  <span className="font-semibold">Note:</span> Upload both front and back images for best results. The AI will generate a model wearing your product from both angles.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </main>
