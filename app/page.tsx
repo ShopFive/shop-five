@@ -116,13 +116,20 @@ export default function HomePage() {
       
       // Upload Front Image
       if (frontImage && !noFront) {
+        // ✅ إنشاء File جديد بالاسم الصحيح
+        const newFileName = `${selectedCategory}_${timestamp}_front.jpg`;
+        const renamedFrontFile = new File([frontImage], newFileName, {
+          type: frontImage.type,
+          lastModified: Date.now(),
+        });
+        
         const frontFormData = new FormData();
         frontFormData.append('category', selectedCategory);
         frontFormData.append('timestamp', timestamp.toString());
         frontFormData.append('side', 'front');
-        frontFormData.append('image_0', frontImage, `${selectedCategory}_${timestamp}_front.jpg`);
+        frontFormData.append('image_0', renamedFrontFile);
         
-        console.log('📤 Uploading FRONT image...');
+        console.log('📤 Uploading FRONT image:', newFileName);
         
         const frontResponse = await fetch('/api/upload', {
           method: 'POST',
@@ -140,13 +147,20 @@ export default function HomePage() {
       
       // Upload Back Image
       if (backImage && !noBack) {
+        // ✅ إنشاء File جديد بالاسم الصحيح
+        const newFileName = `${selectedCategory}_${timestamp}_back.jpg`;
+        const renamedBackFile = new File([backImage], newFileName, {
+          type: backImage.type,
+          lastModified: Date.now(),
+        });
+        
         const backFormData = new FormData();
         backFormData.append('category', selectedCategory);
         backFormData.append('timestamp', timestamp.toString());
         backFormData.append('side', 'back');
-        backFormData.append('image_0', backImage, `${selectedCategory}_${timestamp}_back.jpg`);
+        backFormData.append('image_0', renamedBackFile);
         
-        console.log('📤 Uploading BACK image...');
+        console.log('📤 Uploading BACK image:', newFileName);
         
         const backResponse = await fetch('/api/upload', {
           method: 'POST',
