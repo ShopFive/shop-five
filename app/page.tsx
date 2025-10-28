@@ -83,138 +83,6 @@ export default function HomePage() {
     if (backInputRef.current) backInputRef.current.value = '';
   };
 
-  const mergeImages = async (): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        reject(new Error('Canvas not supported'));
-        return;
-      }
-
-      // Check if at least one image exists
-      if ((!frontImage || noFront) && (!backImage || noBack)) {
-        reject(new Error('At least one image is required'));
-        return;
-      }
-
-      // Reduced size for better memory handling
-      const MAX_WIDTH = 800;
-      const DEFAULT_SIZE = 800;
-      let frontWidth = DEFAULT_SIZE;
-      let frontHeight = DEFAULT_SIZE;
-      let backWidth = DEFAULT_SIZE;
-      let backHeight = DEFAULT_SIZE;
-
-      const loadImage = (src: string): Promise<HTMLImageElement> => {
-        return new Promise((resolveImg, rejectImg) => {
-          const img = new Image();
-          img.onload = () => resolveImg(img);
-          img.onerror = () => rejectImg(new Error('Failed to load image'));
-          img.src = src;
-        });
-      };
-
-      const resizeImage = (img: HTMLImageElement, maxWidth: number = 2048): { width: number, height: number } => {
-        // Calculate new dimensions while maintaining aspect ratio
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-        
-        return { width: Math.round(width), height: Math.round(height) };
-      };
-
-      const processImages = async () => {
-        let frontImg: HTMLImageElement | null = null;
-        let backImg: HTMLImageElement | null = null;
-        let frontDims = { width: DEFAULT_SIZE, height: DEFAULT_SIZE };
-        let backDims = { width: DEFAULT_SIZE, height: DEFAULT_SIZE };
-
-        // Load and resize front image if exists
-        if (frontImage && !noFront && frontPreview) {
-          try {
-            frontImg = await loadImage(frontPreview);
-            frontDims = resizeImage(frontImg, 2048); // Max width 2048px (high quality)
-            console.log('Front image resized:', frontDims);
-          } catch (error) {
-            reject(new Error('Failed to load front image'));
-            return;
-          }
-        }
-
-        // Load and resize back image if exists
-        if (backImage && !noBack && backPreview) {
-          try {
-            backImg = await loadImage(backPreview);
-            backDims = resizeImage(backImg, 2048); // Max width 2048px (high quality)
-            console.log('Back image resized:', backDims);
-          } catch (error) {
-            reject(new Error('Failed to load back image'));
-            return;
-          }
-        }
-
-        // Calculate canvas size
-        const maxHeight = Math.max(frontDims.height, backDims.height);
-        const totalWidth = frontDims.width + backDims.width;
-        
-        canvas.width = totalWidth;
-        canvas.height = maxHeight;
-
-        console.log('Canvas size:', canvas.width, 'x', canvas.height);
-
-        // Fill white background
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw front image (left side) or placeholder
-        if (frontImg) {
-          ctx.drawImage(frontImg, 0, (maxHeight - frontDims.height) / 2, frontDims.width, frontDims.height);
-        } else {
-          // Draw placeholder for "No Front"
-          ctx.fillStyle = '#F3F4F6';
-          ctx.fillRect(0, 0, frontDims.width, maxHeight);
-          ctx.fillStyle = '#6B7280';
-          ctx.font = '24px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('NO FRONT', frontDims.width / 2, maxHeight / 2);
-        }
-
-        // Draw back image (right side) or placeholder
-        if (backImg) {
-          ctx.drawImage(backImg, frontDims.width, (maxHeight - backDims.height) / 2, backDims.width, backDims.height);
-        } else {
-          // Draw placeholder for "No Back"
-          ctx.fillStyle = '#F3F4F6';
-          ctx.fillRect(frontDims.width, 0, backDims.width, maxHeight);
-          ctx.fillStyle = '#6B7280';
-          ctx.font = '24px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('NO BACK', frontDims.width + backDims.width / 2, maxHeight / 2);
-        }
-
-        // Convert to blob with high quality JPEG
-        canvas.toBlob((blob) => {
-          if (blob) {
-            console.log('✅ Merged image created, size:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create blob'));
-          }
-        }, 'image/jpeg', 0.95); // JPEG with 95% quality (maximum quality)
-      };
-
-      processImages().catch(reject);
-    });
-  };
-
   const handleUpload = async () => {
     console.log('🚀 Starting upload...');
     
@@ -236,47 +104,76 @@ export default function HomePage() {
     setIsUploading(true);
 
     try {
-      console.log('📸 Merging images...');
+      // Generate unique timestamp for both images
+      const timestamp = Date.now();
+      
+      console.log('📸 Preparing to upload images...');
       console.log('Front:', frontImage ? frontImage.name : 'No Front');
       console.log('Back:', backImage ? backImage.name : 'No Back');
+      console.log('Timestamp:', timestamp);
       
-      // Merge images
-      const mergedBlob = await mergeImages();
-      console.log('✅ Images merged successfully, blob size:', mergedBlob.size);
+      let uploadedCount = 0;
       
-      // Create FormData
-      const formData = new FormData();
-      formData.append('category', selectedCategory);
-      formData.append('image_0', mergedBlob, `${selectedCategory}_merged_${Date.now()}.jpg`);
-      
-      console.log('📤 Uploading to webhook...');
-
-      // Upload
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      console.log('📥 Response status:', response.status);
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Upload successful:', result);
-        alert(`✅ ${result.message || 'Upload successful!'}`);
+      // Upload Front Image
+      if (frontImage && !noFront) {
+        const frontFormData = new FormData();
+        frontFormData.append('category', selectedCategory);
+        frontFormData.append('timestamp', timestamp.toString());
+        frontFormData.append('side', 'front');
+        frontFormData.append('image_0', frontImage, `${selectedCategory}_${timestamp}_front.jpg`);
         
-        // Reset form
-        setFrontImage(null);
-        setBackImage(null);
-        setFrontPreview(null);
-        setBackPreview(null);
-        setNoFront(false);
-        setNoBack(false);
-        setSelectedCategory(null);
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Server error:', errorText);
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+        console.log('📤 Uploading FRONT image...');
+        
+        const frontResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: frontFormData,
+        });
+
+        if (!frontResponse.ok) {
+          const errorText = await frontResponse.text();
+          throw new Error(`Front upload failed: ${frontResponse.status} - ${errorText}`);
+        }
+        
+        console.log('✅ Front image uploaded successfully');
+        uploadedCount++;
       }
+      
+      // Upload Back Image
+      if (backImage && !noBack) {
+        const backFormData = new FormData();
+        backFormData.append('category', selectedCategory);
+        backFormData.append('timestamp', timestamp.toString());
+        backFormData.append('side', 'back');
+        backFormData.append('image_0', backImage, `${selectedCategory}_${timestamp}_back.jpg`);
+        
+        console.log('📤 Uploading BACK image...');
+        
+        const backResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: backFormData,
+        });
+
+        if (!backResponse.ok) {
+          const errorText = await backResponse.text();
+          throw new Error(`Back upload failed: ${backResponse.status} - ${errorText}`);
+        }
+        
+        console.log('✅ Back image uploaded successfully');
+        uploadedCount++;
+      }
+      
+      console.log(`✅ Upload complete! ${uploadedCount} image(s) uploaded`);
+      alert(`✅ Successfully uploaded ${uploadedCount} image(s) to ${selectedCategory.toUpperCase()}!`);
+      
+      // Reset form
+      setFrontImage(null);
+      setBackImage(null);
+      setFrontPreview(null);
+      setBackPreview(null);
+      setNoFront(false);
+      setNoBack(false);
+      setSelectedCategory(null);
+      
     } catch (error) {
       console.error('❌ Upload error:', error);
       alert(`❌ Upload failed: ${error instanceof Error ? error.message : 'Please try again.'}`);
@@ -352,159 +249,180 @@ export default function HomePage() {
 
         {/* Image Upload Section */}
         {selectedCategory && (
-          <div className="bg-white rounded-2xl p-8 border-2 border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              
-              {/* FRONT Image */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">F</span>
-                  Front View
-                </h3>
-                
-                <input
-                  ref={frontInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFrontImage}
-                  className="hidden"
-                  id="front-upload"
-                  disabled={noFront || isUploading}
-                />
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Upload Images for {selectedCategory.toUpperCase()}
+            </h2>
 
-                {frontPreview ? (
-                  <div className="relative aspect-square rounded-xl overflow-hidden border-2 border-blue-500">
-                    <img src={frontPreview} alt="Front" className="w-full h-full object-cover" />
-                    <button
-                      onClick={removeFrontImage}
-                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="front-upload"
-                    className={`aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                      noFront 
-                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
-                        : 'border-blue-400 hover:border-blue-500 hover:bg-blue-50'
-                    }`}
-                  >
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-700 font-semibold">Upload Front Image</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Front Image */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-lg font-semibold text-gray-700">
+                    Front Image
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={noFront}
+                      onChange={(e) => {
+                        setNoFront(e.target.checked);
+                        if (e.target.checked) {
+                          removeFrontImage();
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded"
+                    />
+                    <span className="text-sm text-gray-600">No Front Image</span>
+                  </label>
+                </div>
+
+                {!noFront && (
+                  <>
+                    <input
+                      ref={frontInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFrontImage}
+                      className="hidden"
+                      id="front-upload"
+                    />
+                    
+                    {frontPreview ? (
+                      <div className="relative">
+                        <img
+                          src={frontPreview}
+                          alt="Front preview"
+                          className="w-full h-64 object-cover rounded-xl border-2 border-gray-200"
+                        />
+                        <button
+                          onClick={removeFrontImage}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor="front-upload"
+                        className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                      >
+                        <div className="text-center">
+                          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <p className="mt-2 text-sm text-gray-600">
+                            Click to upload front image
+                          </p>
+                        </div>
+                      </label>
+                    )}
+                  </>
                 )}
 
-                <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={noFront}
-                    onChange={(e) => {
-                      setNoFront(e.target.checked);
-                      if (e.target.checked) removeFrontImage();
-                    }}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-gray-600">No front image available</span>
-                </label>
+                {noFront && (
+                  <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <p className="text-gray-500 text-lg">No Front Image</p>
+                  </div>
+                )}
               </div>
 
-              {/* BACK Image */}
+              {/* Back Image */}
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold">B</span>
-                  Back View
-                </h3>
-                
-                <input
-                  ref={backInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleBackImage}
-                  className="hidden"
-                  id="back-upload"
-                  disabled={noBack || isUploading}
-                />
-
-                {backPreview ? (
-                  <div className="relative aspect-square rounded-xl overflow-hidden border-2 border-purple-500">
-                    <img src={backPreview} alt="Back" className="w-full h-full object-cover" />
-                    <button
-                      onClick={removeBackImage}
-                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="back-upload"
-                    className={`aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                      noBack 
-                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
-                        : 'border-purple-400 hover:border-purple-500 hover:bg-purple-50'
-                    }`}
-                  >
-                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-                      <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-700 font-semibold">Upload Back Image</p>
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-lg font-semibold text-gray-700">
+                    Back Image
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={noBack}
+                      onChange={(e) => {
+                        setNoBack(e.target.checked);
+                        if (e.target.checked) {
+                          removeBackImage();
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded"
+                    />
+                    <span className="text-sm text-gray-600">No Back Image</span>
+                  </label>
+                </div>
+
+                {!noBack && (
+                  <>
+                    <input
+                      ref={backInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBackImage}
+                      className="hidden"
+                      id="back-upload"
+                    />
+                    
+                    {backPreview ? (
+                      <div className="relative">
+                        <img
+                          src={backPreview}
+                          alt="Back preview"
+                          className="w-full h-64 object-cover rounded-xl border-2 border-gray-200"
+                        />
+                        <button
+                          onClick={removeBackImage}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor="back-upload"
+                        className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                      >
+                        <div className="text-center">
+                          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <p className="mt-2 text-sm text-gray-600">
+                            Click to upload back image
+                          </p>
+                        </div>
+                      </label>
+                    )}
+                  </>
                 )}
 
-                <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={noBack}
-                    onChange={(e) => {
-                      setNoBack(e.target.checked);
-                      if (e.target.checked) removeBackImage();
-                    }}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-gray-600">No back image available</span>
-                </label>
+                {noBack && (
+                  <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <p className="text-gray-500 text-lg">No Back Image</p>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Upload Button */}
-            <button
-              onClick={handleUpload}
-              disabled={!canUpload || isUploading}
-              className={`w-full py-4 rounded-xl font-semibold text-white transition-all duration-200 ${
-                !canUpload || isUploading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'
-              }`}
-            >
-              {isUploading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Uploading & Merging Images...
-                </span>
-              ) : (
-                'Upload & Process Images'
-              )}
-            </button>
-
-            {/* Info */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <span className="text-lg">ℹ️</span>
-                <p className="text-sm text-blue-700">
-                  <span className="font-semibold">Note:</span> Upload both front and back images for best results. The AI will generate a model wearing your product from both angles.
-                </p>
-              </div>
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={handleUpload}
+                disabled={!canUpload || isUploading}
+                className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${
+                  canUpload && !isUploading
+                    ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isUploading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Uploading...
+                  </span>
+                ) : (
+                  'Upload Images'
+                )}
+              </button>
             </div>
           </div>
         )}
