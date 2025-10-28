@@ -8,15 +8,6 @@ export async function POST(request: NextRequest) {
   try {
     console.log('📤 Starting R2 upload...');
     
-    // Log environment variables (for debugging)
-    console.log('Env check:', {
-      hasAccountId: !!process.env.R2_ACCOUNT_ID,
-      hasBucketName: !!process.env.R2_BUCKET_NAME,
-      hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
-      hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,
-      hasPublicUrl: !!process.env.R2_PUBLIC_URL
-    });
-
     // Validate environment variables
     if (!process.env.R2_ACCOUNT_ID || !process.env.R2_BUCKET_NAME || 
         !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || 
@@ -28,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Initialize R2 client inside the function
+    // Initialize R2 client
     const r2Client = new S3Client({
       region: 'auto',
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -40,32 +31,33 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData();
     const category = formData.get('category') as string;
+    const timestamp = formData.get('timestamp') as string;
+    const side = formData.get('side') as string;
     const imageFile = formData.get('image_0') as File;
 
-    if (!category || !imageFile) {
+    if (!category || !imageFile || !timestamp || !side) {
       return NextResponse.json(
-        { error: 'Missing category or image' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    console.log('📊 Image details:', {
-      name: imageFile.name,
-      size: (imageFile.size / 1024 / 1024).toFixed(2) + ' MB',
-      type: imageFile.type,
-      category: category
+    console.log('📊 Received:', {
+      category,
+      timestamp,
+      side,
+      fileName: imageFile.name,
+      size: (imageFile.size / 1024 / 1024).toFixed(2) + ' MB'
     });
 
     // Convert to buffer
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    // Generate unique filename
-    const timestamp = Date.now();
-    const fileName = `${category}/${timestamp}_${imageFile.name}`;
+    // CRITICAL: Use the EXACT filename from Next.js - DO NOT modify it!
+    const fileName = `${category}/${imageFile.name}`;
 
-    console.log('☁️ Uploading to R2:', fileName);
-    console.log('Bucket:', process.env.R2_BUCKET_NAME);
+    console.log('☁️ Final filename for R2:', fileName);
 
     // Upload to R2
     const command = new PutObjectCommand({
@@ -76,6 +68,8 @@ export async function POST(request: NextRequest) {
       Metadata: {
         'original-name': imageFile.name,
         'category': category,
+        'timestamp': timestamp,
+        'side': side,
         'upload-date': new Date().toISOString(),
         'size': imageFile.size.toString()
       }
@@ -88,11 +82,11 @@ export async function POST(request: NextRequest) {
     // Construct public URL
     const imageUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
 
-    // Trigger n8n workflow with image URL
+    // Trigger n8n workflow
     console.log('🔔 Triggering n8n workflow...');
     
     try {
-      const n8nResponse = await fetch('https://n8n.srv880249.hstgr.cloud/webhook/process-r2-image', {
+      const n8nResponse = await fetch('https://n8n.srv880249.hstgr.cloud/webhook/upload-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,26 +94,27 @@ export async function POST(request: NextRequest) {
           category,
           fileName,
           timestamp,
+          side,
           size: imageFile.size
         })
       });
 
       if (!n8nResponse.ok) {
-        console.warn('⚠️ n8n webhook failed, but image uploaded successfully');
+        console.warn('⚠️ n8n webhook failed');
       } else {
         console.log('✅ n8n workflow triggered!');
       }
     } catch (error) {
       console.error('❌ n8n webhook error:', error);
-      // Continue anyway - image is uploaded
     }
 
     return NextResponse.json({
       success: true,
-      message: `Successfully uploaded to ${category.toUpperCase()}`,
+      message: `Successfully uploaded ${side} image`,
       imageUrl,
       fileName,
-      size: imageFile.size
+      timestamp,
+      side
     });
 
   } catch (error) {
