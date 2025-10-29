@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ImageGroup } from '@/types/gallery';
+import { ImageGroup, isOldSystem, isNewSystem } from '@/types/gallery';
 import { X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface EnhancedImageLightboxProps {
@@ -19,7 +19,30 @@ export default function EnhancedImageLightbox({
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
 
-  const currentVariation = group.variations[currentVariationIndex];
+  // Get variations and current variation based on system type
+  const getVariationsData = () => {
+    if (isOldSystem(group)) {
+      return {
+        variations: group.variations,
+        currentVariation: group.variations[currentVariationIndex],
+        originalUrl: group.original.url
+      };
+    } else {
+      // New system
+      const variations = [
+        group.processed.front,
+        group.processed.back
+      ].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
+      
+      return {
+        variations: variations,
+        currentVariation: variations[currentVariationIndex] || variations[0],
+        originalUrl: group.original.front?.url || group.original.back?.url || ''
+      };
+    }
+  };
+
+  const variationsData = getVariationsData();
 
   const handleMouseDown = () => setIsDragging(true);
   const handleMouseUp = () => setIsDragging(false);
@@ -42,14 +65,14 @@ export default function EnhancedImageLightbox({
 
   const handlePrevious = () => {
     setCurrentVariationIndex((prev) => 
-      prev === 0 ? group.variations.length - 1 : prev - 1
+      prev === 0 ? variationsData.variations.length - 1 : prev - 1
     );
     setSliderPosition(50);
   };
 
   const handleNext = () => {
     setCurrentVariationIndex((prev) => 
-      prev === group.variations.length - 1 ? 0 : prev + 1
+      prev === variationsData.variations.length - 1 ? 0 : prev + 1
     );
     setSliderPosition(50);
   };
@@ -83,22 +106,35 @@ export default function EnhancedImageLightbox({
   };
 
   const handleDownloadOriginal = () => {
-    handleDownload(group.original.url, `${group.name}-original.jpg`);
+    handleDownload(variationsData.originalUrl, `${group.name}-original.jpg`);
   };
 
   const handleDownloadCurrentVariation = () => {
-    handleDownload(currentVariation.url, `${group.name}-variation-${currentVariationIndex + 1}.jpg`);
+    const label = isNewSystem(group) 
+      ? (currentVariationIndex === 0 ? 'front' : 'back')
+      : `variation-${currentVariationIndex + 1}`;
+    handleDownload(variationsData.currentVariation.url, `${group.name}-${label}.jpg`);
   };
 
   const handleDownloadAll = async () => {
     // Download original
-    handleDownload(group.original.url, `${group.name}-original.jpg`);
+    handleDownload(variationsData.originalUrl, `${group.name}-original.jpg`);
     
     // Download all variations with delay
-    for (let i = 0; i < group.variations.length; i++) {
+    for (let i = 0; i < variationsData.variations.length; i++) {
       await new Promise(resolve => setTimeout(resolve, 500));
-      handleDownload(group.variations[i].url, `${group.name}-variation-${i + 1}.jpg`);
+      const label = isNewSystem(group) 
+        ? (i === 0 ? 'front' : 'back')
+        : `variation-${i + 1}`;
+      handleDownload(variationsData.variations[i].url, `${group.name}-${label}.jpg`);
     }
+  };
+
+  const getVariationLabel = (index: number) => {
+    if (isNewSystem(group)) {
+      return index === 0 ? 'Front View' : 'Back View';
+    }
+    return `Variation ${index + 1}`;
   };
 
   return (
@@ -111,7 +147,7 @@ export default function EnhancedImageLightbox({
             <div>
               <h2 className="text-lg md:text-xl font-semibold text-gray-900">{group.name}</h2>
               <p className="text-sm text-gray-500">
-                Variation {currentVariationIndex + 1} of {group.variations.length}
+                {getVariationLabel(currentVariationIndex)} ({currentVariationIndex + 1} of {variationsData.variations.length})
               </p>
             </div>
           </div>
@@ -144,13 +180,13 @@ export default function EnhancedImageLightbox({
               {/* After Image */}
               <div className="relative w-full bg-white">
                 <img
-                  src={currentVariation.url}
+                  src={variationsData.currentVariation.url}
                   alt="After"
                   className="w-full h-auto"
                   style={{ maxHeight: '70vh', objectFit: 'contain' }}
                 />
                 <div className="absolute top-4 right-4 bg-emerald-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                  After ✨
+                  {isNewSystem(group) ? (currentVariationIndex === 0 ? 'Front ✨' : 'Back ✨') : 'After ✨'}
                 </div>
               </div>
 
@@ -160,7 +196,7 @@ export default function EnhancedImageLightbox({
                 style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
               >
                 <img
-                  src={group.original.url}
+                  src={variationsData.originalUrl}
                   alt="Before"
                   className="w-full h-auto"
                   style={{ maxHeight: '70vh', objectFit: 'contain' }}
@@ -192,10 +228,10 @@ export default function EnhancedImageLightbox({
           {/* Variations Grid */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              All Variations ({group.variations.length})
+              {isNewSystem(group) ? 'All Views' : 'All Variations'} ({variationsData.variations.length})
             </h3>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-              {group.variations.map((variation, index) => (
+              {variationsData.variations.map((variation, index) => (
                 <button
                   key={variation.id}
                   onClick={() => {
@@ -213,11 +249,13 @@ export default function EnhancedImageLightbox({
                 >
                   <img
                     src={variation.url}
-                    alt={`Variation ${index + 1}`}
+                    alt={getVariationLabel(index)}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute bottom-1 left-1 right-1 bg-black/60 backdrop-blur-sm rounded-lg py-1 text-center">
-                    <span className="text-white text-xs font-bold">#{index + 1}</span>
+                    <span className="text-white text-xs font-bold">
+                      {isNewSystem(group) ? (index === 0 ? 'Front' : 'Back') : `#${index + 1}`}
+                    </span>
                   </div>
                   {index === currentVariationIndex && (
                     <div className="absolute top-1 right-1 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center">
@@ -265,7 +303,7 @@ export default function EnhancedImageLightbox({
                   </div>
                   <div className="flex-1">
                     <div className="text-xs text-gray-500 mb-1">AI Model</div>
-                    <div className="font-medium text-gray-900">Nano Banna</div>
+                    <div className="font-medium text-gray-900">Gemini Pro</div>
                   </div>
                 </div>
 
@@ -276,8 +314,8 @@ export default function EnhancedImageLightbox({
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs text-gray-500 mb-1">Total Variations</div>
-                    <div className="font-medium text-gray-900">{group.variations.length}</div>
+                    <div className="text-xs text-gray-500 mb-1">Total {isNewSystem(group) ? 'Views' : 'Variations'}</div>
+                    <div className="font-medium text-gray-900">{variationsData.variations.length}</div>
                   </div>
                 </div>
 
@@ -288,8 +326,8 @@ export default function EnhancedImageLightbox({
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs text-gray-500 mb-1">Current Variation</div>
-                    <div className="font-medium text-gray-900">#{currentVariationIndex + 1}</div>
+                    <div className="text-xs text-gray-500 mb-1">Current View</div>
+                    <div className="font-medium text-gray-900">{getVariationLabel(currentVariationIndex)}</div>
                   </div>
                 </div>
               </div>
@@ -311,14 +349,14 @@ export default function EnhancedImageLightbox({
                   className="w-full border-2 border-blue-500 text-blue-600 bg-white hover:bg-blue-50 py-3.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
                 >
                   <Download className="w-5 h-5" />
-                  Download Variation #{currentVariationIndex + 1}
+                  Download {getVariationLabel(currentVariationIndex)}
                 </button>
                 <button 
                   onClick={handleDownloadAll}
                   className="w-full border-2 border-emerald-500 text-emerald-600 bg-white hover:bg-emerald-50 py-3.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
                 >
                   <Download className="w-5 h-5" />
-                  Download All ({group.variations.length + 1})
+                  Download All ({variationsData.variations.length + 1})
                 </button>
               </div>
               
@@ -326,7 +364,7 @@ export default function EnhancedImageLightbox({
                 <div className="flex items-start gap-2">
                   <span className="text-lg">💡</span>
                   <p className="text-xs text-blue-700">
-                    <span className="font-semibold">Tip:</span> Use arrow keys (← →) to navigate between variations
+                    <span className="font-semibold">Tip:</span> Use arrow keys (← →) to navigate between {isNewSystem(group) ? 'views' : 'variations'}
                   </p>
                 </div>
               </div>

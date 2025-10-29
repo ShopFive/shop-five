@@ -1,6 +1,6 @@
 'use client';
 
-import { ImageGroup, ViewMode } from '@/types/gallery';
+import { ImageGroup, ViewMode, isOldSystem, isNewSystem } from '@/types/gallery';
 import { Calendar, Folder } from 'lucide-react';
 
 interface ImageGroupCardProps {
@@ -36,6 +36,33 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
     }
   };
 
+  // Get display data based on system type
+  const getDisplayData = () => {
+    if (isOldSystem(group)) {
+      return {
+        originalUrl: group.original.url,
+        originalFileSize: group.original.fileSize,
+        variations: group.variations,
+        variationsCount: group.variations.length
+      };
+    } else {
+      // New system (Clothes)
+      const variations = [
+        group.processed.front,
+        group.processed.back
+      ].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
+      
+      return {
+        originalUrl: group.original.front?.url || group.original.back?.url || '',
+        originalFileSize: group.original.front?.fileSize || group.original.back?.fileSize || 0,
+        variations: variations,
+        variationsCount: variations.length
+      };
+    }
+  };
+
+  const displayData = getDisplayData();
+
   // Compact view for grid-6
   if (viewMode === 'grid-6') {
     return (
@@ -46,7 +73,7 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
           className="relative aspect-square rounded-lg overflow-hidden mb-2 bg-gray-100 w-full hover:ring-2 hover:ring-blue-500 transition-all"
         >
           <img
-            src={group.original.url}
+            src={displayData.originalUrl}
             alt={group.name}
             className="w-full h-full object-cover"
           />
@@ -57,7 +84,7 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
 
         {/* Variations Grid (2x2 preview) */}
         <div className="grid grid-cols-2 gap-1 mb-2">
-          {group.variations.slice(0, 4).map((variation, index) => (
+          {displayData.variations.slice(0, 4).map((variation, index) => (
             <button
               key={variation.id}
               onClick={() => onVariationClick(group, index)}
@@ -75,7 +102,7 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
         {/* Info */}
         <div className="text-xs">
           <p className="font-semibold text-gray-900 truncate">{group.name}</p>
-          <p className="text-gray-500">+{group.variations.length} variations</p>
+          <p className="text-gray-500">+{displayData.variationsCount} {isNewSystem(group) ? 'processed' : 'variations'}</p>
         </div>
       </div>
     );
@@ -92,7 +119,7 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
             className="relative w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 hover:ring-2 hover:ring-blue-500 transition-all"
           >
             <img
-              src={group.original.url}
+              src={displayData.originalUrl}
               alt={group.name}
               className="w-full h-full object-cover"
             />
@@ -113,12 +140,12 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
                 <Calendar className="w-4 h-4" />
                 {formatDate(group.uploadDate)}
               </span>
-              <span>{formatFileSize(group.original.fileSize)}</span>
+              <span>{formatFileSize(displayData.originalFileSize)}</span>
             </div>
 
             {/* Variations Preview */}
             <div className="flex gap-2 flex-wrap">
-              {group.variations.map((variation, index) => (
+              {displayData.variations.map((variation, index) => (
                 <button
                   key={variation.id}
                   onClick={() => onVariationClick(group, index)}
@@ -126,7 +153,7 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
                 >
                   <img
                     src={variation.url}
-                    alt={`Variation ${index + 1}`}
+                    alt={`${isNewSystem(group) ? 'Processed' : 'Variation'} ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -166,7 +193,7 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
         className="relative aspect-square bg-gray-100 w-full hover:opacity-90 transition-opacity group"
       >
         <img
-          src={group.original.url}
+          src={displayData.originalUrl}
           alt={group.name}
           className="w-full h-full object-cover"
         />
@@ -190,16 +217,16 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
             <Calendar className="w-3 h-3" />
             {formatDate(group.uploadDate)}
           </span>
-          <span>{formatFileSize(group.original.fileSize)}</span>
+          <span>{formatFileSize(displayData.originalFileSize)}</span>
         </div>
 
         {/* Variations Grid */}
         <div>
           <p className="text-sm font-semibold text-gray-700 mb-2">
-            {group.variations.length} AI Variations:
+            {displayData.variationsCount} {isNewSystem(group) ? 'Processed Views' : 'AI Variations'}:
           </p>
           <div className="grid grid-cols-4 gap-2">
-            {group.variations.map((variation, index) => (
+            {displayData.variations.map((variation, index) => (
               <button
                 key={variation.id}
                 onClick={() => onVariationClick(group, index)}
@@ -207,12 +234,14 @@ export default function ImageGroupCard({ group, viewMode, onVariationClick }: Im
               >
                 <img
                   src={variation.url}
-                  alt={`Variation ${index + 1}`}
+                  alt={`${isNewSystem(group) ? 'Processed' : 'Variation'} ${index + 1}`}
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="absolute bottom-1 left-1 right-1 text-center">
-                    <span className="text-white text-xs font-bold">#{index + 1}</span>
+                    <span className="text-white text-xs font-bold">
+                      {isNewSystem(group) ? (index === 0 ? 'Front' : 'Back') : `#${index + 1}`}
+                    </span>
                   </div>
                 </div>
               </button>

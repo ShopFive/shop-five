@@ -6,28 +6,62 @@ export type ViewMode = 'grid-2' | 'grid-4' | 'grid-6' | 'list';
 
 export type DateFilter = 'all' | 'today' | 'week' | 'month';
 
-// NEW: Image variation
-export interface ImageVariation {
+// Image data structure
+export interface ImageData {
   id: string;
   url: string;
-  thumbnail?: string;
   fileSize: number;
 }
 
-// NEW: Image group (1 original + 8 variations)
-export interface ImageGroup {
+// OLD SYSTEM: For Caps & Shoes
+export interface OldSystemImageGroup {
   id: string;
   name: string;
   category: Category;
   uploadDate: string;
-  original: {
-    url: string;
-    fileSize: number;
-  };
-  variations: ImageVariation[];
+  type: 'old';
+  original: ImageData;
+  variations: ImageData[];
 }
 
-// OLD: Keep for backward compatibility (if needed)
+// NEW SYSTEM: For Clothes (Front + Back)
+export interface NewSystemImageGroup {
+  id: string;
+  name: string;
+  category: Category;
+  uploadDate: string;
+  type: 'new';
+  original: {
+    front: ImageData | null;
+    back: ImageData | null;
+  };
+  processed: {
+    front: ImageData | null;
+    back: ImageData | null;
+  };
+}
+
+// Union type that supports both systems
+export type ImageGroup = OldSystemImageGroup | NewSystemImageGroup;
+
+// Type guards
+export function isOldSystem(group: ImageGroup): group is OldSystemImageGroup {
+  return group.type === 'old';
+}
+
+export function isNewSystem(group: ImageGroup): group is NewSystemImageGroup {
+  return group.type === 'new';
+}
+
+// Stats
+export interface GalleryStats {
+  total: number;
+  clothes: number;
+  caps: number;
+  shoes: number;
+}
+
+// Backward compatibility (deprecated)
 export interface GalleryImage {
   id: string;
   name: string;
@@ -38,9 +72,9 @@ export interface GalleryImage {
   fileSize: number;
 }
 
-export interface GalleryStats {
-  total: number;
-  clothes: number;
-  caps: number;
-  shoes: number;
+export interface ImageVariation {
+  id: string;
+  url: string;
+  thumbnail?: string;
+  fileSize: number;
 }
