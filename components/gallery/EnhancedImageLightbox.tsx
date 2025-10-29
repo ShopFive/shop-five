@@ -29,16 +29,29 @@ export default function EnhancedImageLightbox({
       };
     } else {
       // New system
-      const variations = [
-        group.processed.front,
-        group.processed.back
-      ].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
-      
-      return {
-        variations: variations,
-        currentVariation: variations[currentVariationIndex] || variations[0],
-        originalUrl: group.original.front?.url || group.original.back?.url || ''
-      };
+const variations = [
+  group.processed.front,
+  group.processed.back
+].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
+
+// Match original with current variation
+let originalUrl = '';
+if (currentVariationIndex === 0 && group.original.front) {
+  // Front view: use front original
+  originalUrl = group.original.front.url;
+} else if (currentVariationIndex === 1 && group.original.back) {
+  // Back view: use back original
+  originalUrl = group.original.back.url;
+} else {
+  // Fallback
+  originalUrl = group.original.front?.url || group.original.back?.url || '';
+}
+
+return {
+  variations: variations,
+  currentVariation: variations[currentVariationIndex] || variations[0],
+  originalUrl: originalUrl
+};
     }
   };
 
