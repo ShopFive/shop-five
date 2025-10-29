@@ -7,6 +7,7 @@ import GalleryHeader from '@/components/gallery/GalleryHeader';
 import GalleryFilters from '@/components/gallery/GalleryFilters';
 import ImageGroupCard from '@/components/gallery/ImageGroupCard';
 import EnhancedImageLightbox from '@/components/gallery/EnhancedImageLightbox';
+import DebugGalleryAPI from '@/components/DebugGalleryAPI';
 import { ImageGroup, ViewMode, Category, DateFilter } from '@/types/gallery';
 
 export default function GalleryPage() {
@@ -228,7 +229,7 @@ export default function GalleryPage() {
           </>
         )}
 
-        {/* Enhanced Lightbox with Before/After Slider */}
+       {/* Enhanced Lightbox with Before/After Slider */}
         {selectedGroup && (
           <EnhancedImageLightbox
             group={selectedGroup}
@@ -236,6 +237,9 @@ export default function GalleryPage() {
             onClose={() => setSelectedGroup(null)}
           />
         )}
+
+        {/* Debug Button */}
+        <DebugGalleryAPI />
       </main>
     </div>
   );
