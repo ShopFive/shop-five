@@ -55,6 +55,12 @@ export default function GalleryPage() {
     }
   };
 
+  // Handle delete success - refresh gallery
+  const handleDeleteSuccess = () => {
+    console.log('🔄 Refreshing gallery after delete...');
+    fetchImageGroups();
+  };
+
   // Filter image groups based on selected filters
   const filteredGroups = useMemo(() => {
     let filtered = [...imageGroups];
@@ -217,6 +223,7 @@ export default function GalleryPage() {
                   group={group}
                   viewMode={viewMode}
                   onVariationClick={handleVariationClick}
+                  onDeleteSuccess={handleDeleteSuccess}
                 />
               ))}
             </div>
@@ -235,6 +242,7 @@ export default function GalleryPage() {
             group={selectedGroup}
             initialVariationIndex={selectedVariationIndex}
             onClose={() => setSelectedGroup(null)}
+            onDeleteSuccess={handleDeleteSuccess}
           />
         )}
 
