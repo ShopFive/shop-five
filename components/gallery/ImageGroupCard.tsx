@@ -98,9 +98,13 @@ export default function ImageGroupCard({
       }).then(response => {
         if (response.ok) {
           console.log('✅ Delete API success');
-          if (onDeleteSuccess) {
-            onDeleteSuccess();
-          }
+          
+          // ✅ Wait 2 seconds then refresh to remove from gallery
+          setTimeout(() => {
+            if (onDeleteSuccess) {
+              onDeleteSuccess();
+            }
+          }, 2000);
         } else {
           console.error('❌ Delete API failed');
         }
