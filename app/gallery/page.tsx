@@ -57,9 +57,17 @@ export default function GalleryPage() {
 
   // Handle delete success - refresh gallery
   const handleDeleteSuccess = () => {
-    console.log('🔄 Refreshing gallery after delete...');
-    fetchImageGroups();
-  };
+  console.log('🔄 Refreshing gallery after delete...');
+  
+  // Remove the deleted group from state immediately
+  if (selectedGroup) {
+    setImageGroups(prev => prev.filter(g => g.id !== selectedGroup.id));
+    setSelectedGroup(null);
+  }
+  
+  // Then refresh from API
+  fetchImageGroups();
+};
 
   // Filter image groups based on selected filters
   const filteredGroups = useMemo(() => {
