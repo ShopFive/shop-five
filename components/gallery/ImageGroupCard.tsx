@@ -49,12 +49,10 @@ export default function ImageGroupCard({
     }
   };
 
-  // Extract all file IDs from the group
   const extractFileIds = (): string[] => {
     const fileIds: string[] = [];
     
     if (isOldSystem(group)) {
-      // Old system: Original + Variations
       if (group.original?.id) {
         fileIds.push(group.original.id);
       }
@@ -64,7 +62,6 @@ export default function ImageGroupCard({
         }
       });
     } else {
-      // New system: Original Front/Back + Processed Front/Back
       if (group.original.front?.id) fileIds.push(group.original.front.id);
       if (group.original.back?.id) fileIds.push(group.original.back.id);
       if (group.processed.front?.id) fileIds.push(group.processed.front.id);
@@ -74,10 +71,10 @@ export default function ImageGroupCard({
     return fileIds;
   };
 
-  // Handle delete
   const handleDelete = async (productId: string) => {
+    setIsDeleted(true);
+    
     try {
-      // Extract all file IDs
       const fileIds = extractFileIds();
       
       console.log('🗑️ Deleting files:', { 
@@ -87,7 +84,7 @@ export default function ImageGroupCard({
         fileIds 
       });
       
-      const response = await fetch('/api/delete-product', {
+      fetch('/api/delete-product', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -98,28 +95,21 @@ export default function ImageGroupCard({
           category: group.category,
           fileIds: fileIds,
         }),
+      }).then(response => {
+        if (response.ok) {
+          console.log('✅ Delete API success');
+          if (onDeleteSuccess) {
+            onDeleteSuccess();
+          }
+        } else {
+          console.error('❌ Delete API failed');
+        }
+      }).catch(error => {
+        console.error('❌ Delete error:', error);
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete product');
-      }
-
-      const result = await response.json();
-      console.log('✅ Delete success:', result);
-
-      // Mark as deleted immediately
-      setIsDeleted(true);
-
-      // Success - notify parent to refresh
-      if (onDeleteSuccess) {
-        onDeleteSuccess();
-      }
       
     } catch (error) {
       console.error('❌ Delete error:', error);
-      alert(`❌ Failed to delete product: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
     }
   };
 
@@ -127,7 +117,6 @@ export default function ImageGroupCard({
     setShowSuccessModal(true);
   };
 
-  // Get display data based on system type
   const getDisplayData = () => {
     if (isOldSystem(group)) {
       return {
@@ -137,7 +126,6 @@ export default function ImageGroupCard({
         variationsCount: group.variations.length
       };
     } else {
-      // New system (Clothes)
       const variations = [
         group.processed.front,
         group.processed.back
@@ -154,7 +142,6 @@ export default function ImageGroupCard({
 
   const displayData = getDisplayData();
 
-  // Deleted Overlay Component
   const DeletedOverlay = () => (
     <div className="absolute inset-0 bg-gradient-to-br from-black/85 to-gray-900/90 backdrop-blur-sm flex flex-col items-center justify-center z-30">
       <svg className="w-16 h-16 md:w-20 md:h-20 text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,15 +152,12 @@ export default function ImageGroupCard({
     </div>
   );
 
-  // Compact view for grid-6
   if (viewMode === 'grid-6') {
     return (
       <>
         <div className="group relative bg-white rounded-lg border border-gray-200 p-3 hover:shadow-lg transition-all duration-200">
-          {/* Deleted Overlay */}
           {isDeleted && <DeletedOverlay />}
 
-          {/* Delete Button - Shows on hover */}
           {!isDeleted && (
             <button
               onClick={(e) => {
@@ -189,7 +173,6 @@ export default function ImageGroupCard({
             </button>
           )}
 
-          {/* Original (Small) - Clickable */}
           <button
             onClick={() => !isDeleted && onVariationClick(group, 0)}
             disabled={isDeleted}
@@ -205,7 +188,6 @@ export default function ImageGroupCard({
             </div>
           </button>
 
-          {/* Variations Grid (2x2 preview) */}
           <div className="grid grid-cols-2 gap-1 mb-2">
             {displayData.variations.slice(0, 4).map((variation, index) => (
               <button
@@ -223,14 +205,12 @@ export default function ImageGroupCard({
             ))}
           </div>
 
-          {/* Info */}
           <div className="text-xs">
             <p className="font-semibold text-gray-900 truncate">{group.name}</p>
             <p className="text-gray-500">+{displayData.variationsCount} {isNewSystem(group) ? 'processed' : 'variations'}</p>
           </div>
         </div>
 
-        {/* Delete Modal */}
         <DeleteConfirmationModal
           isOpen={showDeleteModal}
           productName={group.name}
@@ -240,7 +220,6 @@ export default function ImageGroupCard({
           onDeleteComplete={handleDeleteComplete}
         />
 
-        {/* Success Modal */}
         <DeleteSuccessModal
           isOpen={showSuccessModal}
           productName={group.name}
@@ -250,15 +229,12 @@ export default function ImageGroupCard({
     );
   }
 
-  // List view
   if (viewMode === 'list') {
     return (
       <>
         <div className="group relative bg-white rounded-lg border border-gray-200 p-4 hover:shadow-lg transition-all duration-200">
-          {/* Deleted Overlay */}
           {isDeleted && <DeletedOverlay />}
 
-          {/* Delete Button - Shows on hover */}
           {!isDeleted && (
             <button
               onClick={(e) => {
@@ -275,7 +251,6 @@ export default function ImageGroupCard({
           )}
 
           <div className="flex gap-4 items-start">
-            {/* Original Thumbnail - Clickable */}
             <button
               onClick={() => !isDeleted && onVariationClick(group, 0)}
               disabled={isDeleted}
@@ -291,7 +266,6 @@ export default function ImageGroupCard({
               </div>
             </button>
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-lg text-gray-900 mb-2">{group.name}</h3>
               <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-3">
@@ -306,7 +280,6 @@ export default function ImageGroupCard({
                 <span>{formatFileSize(displayData.originalFileSize)}</span>
               </div>
 
-              {/* Variations Preview */}
               <div className="flex gap-2 flex-wrap">
                 {displayData.variations.map((variation, index) => (
                   <button
@@ -332,7 +305,6 @@ export default function ImageGroupCard({
           </div>
         </div>
 
-        {/* Delete Modal */}
         <DeleteConfirmationModal
           isOpen={showDeleteModal}
           productName={group.name}
@@ -342,7 +314,6 @@ export default function ImageGroupCard({
           onDeleteComplete={handleDeleteComplete}
         />
 
-        {/* Success Modal */}
         <DeleteSuccessModal
           isOpen={showSuccessModal}
           productName={group.name}
@@ -352,14 +323,11 @@ export default function ImageGroupCard({
     );
   }
 
-  // Default: Grid view (2 or 4 columns)
   return (
     <>
       <div className="group relative bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-all duration-300">
-        {/* Deleted Overlay */}
         {isDeleted && <DeletedOverlay />}
 
-        {/* Delete Button - Shows on hover (top right) */}
         {!isDeleted && (
           <button
             onClick={(e) => {
@@ -375,14 +343,12 @@ export default function ImageGroupCard({
           </button>
         )}
 
-        {/* Category Badge */}
         <div className="absolute top-3 left-3 z-10">
           <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium shadow-lg">
             <span>{getCategoryIcon(group.category)}</span>
           </div>
         </div>
 
-        {/* Original Image - Clickable */}
         <button
           onClick={() => !isDeleted && onVariationClick(group, 0)}
           disabled={isDeleted}
@@ -396,7 +362,6 @@ export default function ImageGroupCard({
           <div className="absolute bottom-3 left-3 bg-gray-900/80 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-sm font-bold">
             Original
           </div>
-          {/* Hover overlay */}
           {!isDeleted && (
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <div className="opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg font-semibold text-gray-900 transition-opacity">
@@ -406,7 +371,6 @@ export default function ImageGroupCard({
           )}
         </button>
 
-        {/* Info & Variations */}
         <div className="p-4">
           <h3 className="font-bold text-gray-900 mb-3 truncate">{group.name}</h3>
           
@@ -418,7 +382,6 @@ export default function ImageGroupCard({
             <span>{formatFileSize(displayData.originalFileSize)}</span>
           </div>
 
-          {/* Variations Grid */}
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-2">
               {displayData.variationsCount} {isNewSystem(group) ? 'Processed Views' : 'AI Variations'}:
@@ -452,7 +415,6 @@ export default function ImageGroupCard({
         </div>
       </div>
 
-      {/* Delete Modal */}
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         productName={group.name}
@@ -462,7 +424,6 @@ export default function ImageGroupCard({
         onDeleteComplete={handleDeleteComplete}
       />
 
-      {/* Success Modal */}
       <DeleteSuccessModal
         isOpen={showSuccessModal}
         productName={group.name}
