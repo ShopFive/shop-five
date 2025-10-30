@@ -8,12 +8,14 @@ interface EnhancedImageLightboxProps {
   group: ImageGroup;
   initialVariationIndex: number;
   onClose: () => void;
+  onDeleteSuccess?: () => void;  
 }
 
 export default function EnhancedImageLightbox({ 
   group, 
   initialVariationIndex, 
-  onClose 
+  onClose,
+  onDeleteSuccess  // ← أضيف هنا
 }: EnhancedImageLightboxProps) {
   const [currentVariationIndex, setCurrentVariationIndex] = useState(initialVariationIndex);
   const [sliderPosition, setSliderPosition] = useState(50);
