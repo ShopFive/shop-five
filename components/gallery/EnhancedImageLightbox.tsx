@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ImageGroup, isOldSystem, isNewSystem } from '@/types/gallery';
 import { X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -15,7 +15,7 @@ export default function EnhancedImageLightbox({
   group, 
   initialVariationIndex, 
   onClose,
-  onDeleteSuccess  // ← أضيف هنا
+  onDeleteSuccess
 }: EnhancedImageLightboxProps) {
   const [currentVariationIndex, setCurrentVariationIndex] = useState(initialVariationIndex);
   const [sliderPosition, setSliderPosition] = useState(50);
@@ -37,8 +37,24 @@ export default function EnhancedImageLightbox({
   const [imageLoading, setImageLoading] = useState(true);
   const [beforeImageLoading, setBeforeImageLoading] = useState(true);
 
-  // Get variations and current variation based on system type
-  const getVariationsData = () => {
+  // ✅ FIX 6: Timeout للصور التي لا تُحمّل
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (imageLoading) {
+        console.warn('⚠️ Image loading timeout - forcing display');
+        setImageLoading(false);
+      }
+      if (beforeImageLoading) {
+        console.warn('⚠️ Before image loading timeout - forcing display');
+        setBeforeImageLoading(false);
+      }
+    }, 10000); // 10 ثوانٍ
+
+    return () => clearTimeout(timeout);
+  }, [imageLoading, beforeImageLoading, currentVariationIndex]);
+
+  // ✅ FIX 5: استخدام useMemo بدلاً من function عادية
+  const variationsData = useMemo(() => {
     if (isOldSystem(group)) {
       return {
         variations: group.variations,
@@ -77,9 +93,7 @@ export default function EnhancedImageLightbox({
         totalImages: totalOriginals + variations.length
       };
     }
-  };
-
-  const variationsData = getVariationsData();
+  }, [group, currentVariationIndex]);
 
   // ✅ FIX 1: Slider handlers with useRef
   const handleMouseDown = () => {
@@ -364,11 +378,16 @@ export default function EnhancedImageLightbox({
               {/* After Image */}
               <div className="relative bg-white">
                 <img
+                  key={`after-${currentVariationIndex}-${variationsData.currentVariation.id}`}
                   src={variationsData.currentVariation.url}
                   alt="After"
                   className={`h-auto transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
                   style={{ maxHeight: '70vh', width: 'auto', objectFit: 'contain' }}
                   onLoad={() => setImageLoading(false)}
+                  onError={(e) => {
+                    console.error('❌ Failed to load After image:', variationsData.currentVariation.url);
+                    setImageLoading(false);
+                  }}
                 />
                 <div className="absolute top-2 right-2 md:top-4 md:right-4 bg-emerald-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium shadow-lg">
                   {isNewSystem(group) ? (currentVariationIndex === 0 ? 'Front ✨' : 'Back ✨') : 'After ✨'}
@@ -381,11 +400,16 @@ export default function EnhancedImageLightbox({
                 style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
               >
                 <img
+                  key={`before-${currentVariationIndex}`}
                   src={variationsData.originalUrl}
                   alt="Before"
                   className={`h-auto transition-opacity duration-300 ${beforeImageLoading ? 'opacity-0' : 'opacity-100'}`}
                   style={{ maxHeight: '70vh', width: 'auto', objectFit: 'contain' }}
                   onLoad={() => setBeforeImageLoading(false)}
+                  onError={(e) => {
+                    console.error('❌ Failed to load Before image:', variationsData.originalUrl);
+                    setBeforeImageLoading(false);
+                  }}
                 />
                 <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-gray-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium shadow-lg">
                   Original
