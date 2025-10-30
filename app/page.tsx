@@ -48,6 +48,7 @@ export default function HomePage() {
   const [noFront, setNoFront] = useState(false);
   const [noBack, setNoBack] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const router = useRouter();
 
   const frontInputRef = useRef<HTMLInputElement>(null);
@@ -177,7 +178,7 @@ export default function HomePage() {
       }
       
       console.log(`✅ Upload complete! ${uploadedCount} image(s) uploaded`);
-      alert(`✅ Successfully uploaded ${uploadedCount} image(s) to ${selectedCategory.toUpperCase()}!`);
+      setShowSuccessModal(true);
       
       // Reset form
       setFrontImage(null);
@@ -201,6 +202,57 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes checkmark {
+          0% {
+            stroke-dashoffset: 100;
+          }
+          100% {
+            stroke-dashoffset: 0;
+          }
+        }
+        
+        @keyframes progressBar {
+          0% {
+            width: 0%;
+          }
+          100% {
+            width: 100%;
+          }
+        }
+        
+        .animate-slide-up {
+          animation: slideUp 0.4s ease-out;
+        }
+        
+        .checkmark-circle {
+          stroke-dasharray: 166;
+          stroke-dashoffset: 166;
+          animation: checkmark 0.6s ease-in-out 0.2s forwards;
+        }
+        
+        .checkmark-check {
+          stroke-dasharray: 48;
+          stroke-dashoffset: 48;
+          animation: checkmark 0.4s ease-in-out 0.8s forwards;
+        }
+        
+        .progress-fill {
+          animation: progressBar 5s linear forwards;
+        }
+      `}</style>
+
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
@@ -441,6 +493,102 @@ export default function HomePage() {
           </div>
         )}
       </main>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
+            
+            {/* Animated Success Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <svg className="w-24 h-24" viewBox="0 0 100 100">
+                  {/* Circle Background */}
+                  <circle cx="50" cy="50" r="45" fill="#10B981" opacity="0.1"/>
+                  {/* Animated Circle */}
+                  <circle 
+                    className="checkmark-circle"
+                    cx="50" 
+                    cy="50" 
+                    r="45" 
+                    fill="none" 
+                    stroke="#10B981" 
+                    strokeWidth="4"
+                  />
+                  {/* Animated Checkmark */}
+                  <path 
+                    className="checkmark-check"
+                    d="M 30 50 L 45 65 L 70 35" 
+                    fill="none" 
+                    stroke="#10B981" 
+                    strokeWidth="6" 
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Title */}
+            <h2 className="text-3xl font-bold text-center text-gray-900 mb-3">
+              Upload Successful! 🎉
+            </h2>
+            
+            {/* Description */}
+            <p className="text-center text-gray-600 text-lg mb-6 leading-relaxed">
+              Your images have been uploaded successfully! They will appear in the gallery within 
+              <span className="font-semibold text-blue-600"> 5 minutes</span>.
+            </p>
+            
+            {/* Info Box */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <svg className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-900 mb-1">Processing your images</h4>
+                  <p className="text-sm text-blue-700">
+                    Our AI is currently removing backgrounds and optimizing your images for the gallery.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Processing...</span>
+                <span>5:00</span>
+              </div>
+              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div className="progress-fill h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/gallery')}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/30"
+              >
+                View Gallery
+              </button>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl transition-all"
+              >
+                Got it, thanks!
+              </button>
+            </div>
+            
+            {/* Additional Info */}
+            <p className="text-center text-sm text-gray-500 mt-4">
+              You can close this window and check back later
+            </p>
+            
+          </div>
+        </div>
+      )}
     </div>
   );
 }
