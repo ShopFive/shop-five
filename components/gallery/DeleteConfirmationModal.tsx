@@ -68,23 +68,25 @@ export default function DeleteConfirmationModal({
   };
 
 const handleFinalDelete = async () => {
-    setIsDeleting(true);
+  setIsDeleting(true);
+  
+  try {
+    await onConfirmDelete(productId);
     
-    try {
-      await onConfirmDelete(productId);
-      handleClose();
-      
-      // Trigger success modal
-      if (onDeleteComplete) {
-        onDeleteComplete();
-      }
-    } catch (error) {
-      console.error('Delete failed:', error);
-      // Error handling is done in parent component
-    } finally {
-      setIsDeleting(false);
+    // ✅ Trigger success modal FIRST (before closing)
+    if (onDeleteComplete) {
+      onDeleteComplete();
     }
-  };
+    
+    // ✅ Then close this modal
+    handleClose();
+  } catch (error) {
+    console.error('Delete failed:', error);
+    // Error handling is done in parent component
+  } finally {
+    setIsDeleting(false);
+  }
+};
 
   if (!isOpen) return null;
 

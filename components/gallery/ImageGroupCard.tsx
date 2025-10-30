@@ -74,58 +74,57 @@ export default function ImageGroupCard({
     return fileIds;
   };
 
-  // Handle delete
-  const handleDelete = async (productId: string) => {
-    try {
-      // Extract all file IDs
-      const fileIds = extractFileIds();
-      
-      console.log('🗑️ Deleting files:', { 
-        productId, 
-        productName: group.name, 
+تمام! استبدل هذه الدالة بالكود التالي:
+typescript// Handle delete
+const handleDelete = async (productId: string) => {
+  // ✅ Mark as deleted IMMEDIATELY (before API call)
+  setIsDeleted(true);
+  
+  try {
+    // Extract all file IDs
+    const fileIds = extractFileIds();
+    
+    console.log('🗑️ Deleting files:', { 
+      productId, 
+      productName: group.name, 
+      category: group.category,
+      fileIds 
+    });
+    
+    // ✅ Don't wait for API response - fire and forget
+    fetch('/api/delete-product', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        productId: productId,
+        productName: group.name,
         category: group.category,
-        fileIds 
-      });
-      
-      const response = await fetch('/api/delete-product', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: productId,
-          productName: group.name,
-          category: group.category,
-          fileIds: fileIds,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete product');
+        fileIds: fileIds,
+      }),
+    }).then(response => {
+      if (response.ok) {
+        console.log('✅ Delete API success');
+        // Success - notify parent to refresh
+        if (onDeleteSuccess) {
+          onDeleteSuccess();
+        }
+      } else {
+        console.error('❌ Delete API failed');
       }
-
-      const result = await response.json();
-      console.log('✅ Delete success:', result);
-
-      // Mark as deleted immediately
-      setIsDeleted(true);
-
-      // Success - notify parent to refresh
-      if (onDeleteSuccess) {
-        onDeleteSuccess();
-      }
-      
-    } catch (error) {
+    }).catch(error => {
       console.error('❌ Delete error:', error);
-      alert(`❌ Failed to delete product: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  };
+    });
+    
+  } catch (error) {
+    console.error('❌ Delete error:', error);
+  }
+};
 
-  const handleDeleteComplete = () => {
-    setShowSuccessModal(true);
-  };
+const handleDeleteComplete = () => {
+  setShowSuccessModal(true);
+};
 
   // Get display data based on system type
   const getDisplayData = () => {
