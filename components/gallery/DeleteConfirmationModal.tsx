@@ -9,6 +9,7 @@ interface DeleteConfirmationModalProps {
   productId: string;
   onClose: () => void;
   onConfirmDelete: (productId: string) => Promise<void>;
+  onDeleteComplete?: () => void;
 }
 
 export default function DeleteConfirmationModal({
@@ -17,6 +18,7 @@ export default function DeleteConfirmationModal({
   productId,
   onClose,
   onConfirmDelete,
+  onDeleteComplete,
 }: DeleteConfirmationModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -65,12 +67,17 @@ export default function DeleteConfirmationModal({
     setStep(2);
   };
 
-  const handleFinalDelete = async () => {
+  cconst handleFinalDelete = async () => {
     setIsDeleting(true);
     
     try {
       await onConfirmDelete(productId);
       handleClose();
+      
+      // Trigger success modal
+      if (onDeleteComplete) {
+        onDeleteComplete();
+      }
     } catch (error) {
       console.error('Delete failed:', error);
       // Error handling is done in parent component

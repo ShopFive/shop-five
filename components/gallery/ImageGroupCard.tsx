@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ImageGroup, ViewMode, isOldSystem, isNewSystem } from '@/types/gallery';
 import { Calendar, Folder } from 'lucide-react';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
+import DeleteSuccessModal from './DeleteSuccessModal';
 
 interface ImageGroupCardProps {
   group: ImageGroup;
@@ -19,6 +20,8 @@ export default function ImageGroupCard({
   onDeleteSuccess 
 }: ImageGroupCardProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isDeleted, setIsDeleted] = useState(false);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -93,7 +96,7 @@ export default function ImageGroupCard({
           productId: productId,
           productName: group.name,
           category: group.category,
-          fileIds: fileIds, // ✅ Send all File IDs!
+          fileIds: fileIds,
         }),
       });
 
@@ -105,19 +108,23 @@ export default function ImageGroupCard({
       const result = await response.json();
       console.log('✅ Delete success:', result);
 
+      // Mark as deleted immediately
+      setIsDeleted(true);
+
       // Success - notify parent to refresh
       if (onDeleteSuccess) {
         onDeleteSuccess();
       }
-
-      // Show success message
-      alert(`✅ Product deleted successfully! (${result.deletedFiles || fileIds.length} files)`);
       
     } catch (error) {
       console.error('❌ Delete error:', error);
       alert(`❌ Failed to delete product: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
+  };
+
+  const handleDeleteComplete = () => {
+    setShowSuccessModal(true);
   };
 
   // Get display data based on system type
@@ -147,29 +154,46 @@ export default function ImageGroupCard({
 
   const displayData = getDisplayData();
 
+  // Deleted Overlay Component
+  const DeletedOverlay = () => (
+    <div className="absolute inset-0 bg-gradient-to-br from-black/85 to-gray-900/90 backdrop-blur-sm flex flex-col items-center justify-center z-30">
+      <svg className="w-16 h-16 md:w-20 md:h-20 text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+      <span className="text-white text-2xl md:text-3xl font-bold tracking-wider">DELETED</span>
+      <span className="text-gray-300 text-sm mt-2">Removing from system...</span>
+    </div>
+  );
+
   // Compact view for grid-6
   if (viewMode === 'grid-6') {
     return (
       <>
         <div className="group relative bg-white rounded-lg border border-gray-200 p-3 hover:shadow-lg transition-all duration-200">
+          {/* Deleted Overlay */}
+          {isDeleted && <DeletedOverlay />}
+
           {/* Delete Button - Shows on hover */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowDeleteModal(true);
-            }}
-            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 bg-white rounded-lg border-2 border-red-300 hover:border-red-500 hover:bg-red-50 z-10"
-            title="Delete Product"
-          >
-            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-            </svg>
-          </button>
+          {!isDeleted && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteModal(true);
+              }}
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 bg-white rounded-lg border-2 border-red-300 hover:border-red-500 hover:bg-red-50 z-10"
+              title="Delete Product"
+            >
+              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          )}
 
           {/* Original (Small) - Clickable */}
           <button
-            onClick={() => onVariationClick(group, 0)}
-            className="relative aspect-square rounded-lg overflow-hidden mb-2 bg-gray-100 w-full hover:ring-2 hover:ring-blue-500 transition-all"
+            onClick={() => !isDeleted && onVariationClick(group, 0)}
+            disabled={isDeleted}
+            className="relative aspect-square rounded-lg overflow-hidden mb-2 bg-gray-100 w-full hover:ring-2 hover:ring-blue-500 transition-all disabled:cursor-not-allowed"
           >
             <img
               src={displayData.originalUrl}
@@ -186,8 +210,9 @@ export default function ImageGroupCard({
             {displayData.variations.slice(0, 4).map((variation, index) => (
               <button
                 key={variation.id}
-                onClick={() => onVariationClick(group, index)}
-                className="relative aspect-square rounded overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#5b8def] transition-all"
+                onClick={() => !isDeleted && onVariationClick(group, index)}
+                disabled={isDeleted}
+                className="relative aspect-square rounded overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#5b8def] transition-all disabled:cursor-not-allowed"
               >
                 <img
                   src={variation.url}
@@ -212,6 +237,14 @@ export default function ImageGroupCard({
           productId={group.id}
           onClose={() => setShowDeleteModal(false)}
           onConfirmDelete={handleDelete}
+          onDeleteComplete={handleDeleteComplete}
+        />
+
+        {/* Success Modal */}
+        <DeleteSuccessModal
+          isOpen={showSuccessModal}
+          productName={group.name}
+          onClose={() => setShowSuccessModal(false)}
         />
       </>
     );
@@ -222,25 +255,31 @@ export default function ImageGroupCard({
     return (
       <>
         <div className="group relative bg-white rounded-lg border border-gray-200 p-4 hover:shadow-lg transition-all duration-200">
+          {/* Deleted Overlay */}
+          {isDeleted && <DeletedOverlay />}
+
           {/* Delete Button - Shows on hover */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowDeleteModal(true);
-            }}
-            className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 bg-white rounded-lg border-2 border-red-300 hover:border-red-500 hover:bg-red-50 z-10"
-            title="Delete Product"
-          >
-            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-            </svg>
-          </button>
+          {!isDeleted && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteModal(true);
+              }}
+              className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 bg-white rounded-lg border-2 border-red-300 hover:border-red-500 hover:bg-red-50 z-10"
+              title="Delete Product"
+            >
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          )}
 
           <div className="flex gap-4 items-start">
             {/* Original Thumbnail - Clickable */}
             <button
-              onClick={() => onVariationClick(group, 0)}
-              className="relative w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 hover:ring-2 hover:ring-blue-500 transition-all"
+              onClick={() => !isDeleted && onVariationClick(group, 0)}
+              disabled={isDeleted}
+              className="relative w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 hover:ring-2 hover:ring-blue-500 transition-all disabled:cursor-not-allowed"
             >
               <img
                 src={displayData.originalUrl}
@@ -272,8 +311,9 @@ export default function ImageGroupCard({
                 {displayData.variations.map((variation, index) => (
                   <button
                     key={variation.id}
-                    onClick={() => onVariationClick(group, index)}
-                    className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#5b8def] transition-all group"
+                    onClick={() => !isDeleted && onVariationClick(group, index)}
+                    disabled={isDeleted}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#5b8def] transition-all group disabled:cursor-not-allowed"
                   >
                     <img
                       src={variation.url}
@@ -299,6 +339,14 @@ export default function ImageGroupCard({
           productId={group.id}
           onClose={() => setShowDeleteModal(false)}
           onConfirmDelete={handleDelete}
+          onDeleteComplete={handleDeleteComplete}
+        />
+
+        {/* Success Modal */}
+        <DeleteSuccessModal
+          isOpen={showSuccessModal}
+          productName={group.name}
+          onClose={() => setShowSuccessModal(false)}
         />
       </>
     );
@@ -308,19 +356,24 @@ export default function ImageGroupCard({
   return (
     <>
       <div className="group relative bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-all duration-300">
+        {/* Deleted Overlay */}
+        {isDeleted && <DeletedOverlay />}
+
         {/* Delete Button - Shows on hover (top right) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowDeleteModal(true);
-          }}
-          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 bg-white rounded-lg border-2 border-red-300 hover:border-red-500 hover:bg-red-50 z-20"
-          title="Delete Product"
-        >
-          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-          </svg>
-        </button>
+        {!isDeleted && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteModal(true);
+            }}
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 bg-white rounded-lg border-2 border-red-300 hover:border-red-500 hover:bg-red-50 z-20"
+            title="Delete Product"
+          >
+            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        )}
 
         {/* Category Badge */}
         <div className="absolute top-3 left-3 z-10">
@@ -331,8 +384,9 @@ export default function ImageGroupCard({
 
         {/* Original Image - Clickable */}
         <button
-          onClick={() => onVariationClick(group, 0)}
-          className="relative aspect-square bg-gray-100 w-full hover:opacity-90 transition-opacity"
+          onClick={() => !isDeleted && onVariationClick(group, 0)}
+          disabled={isDeleted}
+          className="relative aspect-square bg-gray-100 w-full hover:opacity-90 transition-opacity disabled:cursor-not-allowed"
         >
           <img
             src={displayData.originalUrl}
@@ -343,11 +397,13 @@ export default function ImageGroupCard({
             Original
           </div>
           {/* Hover overlay */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg font-semibold text-gray-900 transition-opacity">
-              Click to view
+          {!isDeleted && (
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg font-semibold text-gray-900 transition-opacity">
+                Click to view
+              </div>
             </div>
-          </div>
+          )}
         </button>
 
         {/* Info & Variations */}
@@ -371,21 +427,24 @@ export default function ImageGroupCard({
               {displayData.variations.map((variation, index) => (
                 <button
                   key={variation.id}
-                  onClick={() => onVariationClick(group, index)}
-                  className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#5b8def] transition-all group/variation"
+                  onClick={() => !isDeleted && onVariationClick(group, index)}
+                  disabled={isDeleted}
+                  className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#5b8def] transition-all group/variation disabled:cursor-not-allowed"
                 >
                   <img
                     src={variation.url}
                     alt={`${isNewSystem(group) ? 'Processed' : 'Variation'} ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/variation:opacity-100 transition-opacity">
-                    <div className="absolute bottom-1 left-1 right-1 text-center">
-                      <span className="text-white text-xs font-bold">
-                        {isNewSystem(group) ? (index === 0 ? 'Front' : 'Back') : `#${index + 1}`}
-                      </span>
+                  {!isDeleted && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/variation:opacity-100 transition-opacity">
+                      <div className="absolute bottom-1 left-1 right-1 text-center">
+                        <span className="text-white text-xs font-bold">
+                          {isNewSystem(group) ? (index === 0 ? 'Front' : 'Back') : `#${index + 1}`}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -400,6 +459,14 @@ export default function ImageGroupCard({
         productId={group.id}
         onClose={() => setShowDeleteModal(false)}
         onConfirmDelete={handleDelete}
+        onDeleteComplete={handleDeleteComplete}
+      />
+
+      {/* Success Modal */}
+      <DeleteSuccessModal
+        isOpen={showSuccessModal}
+        productName={group.name}
+        onClose={() => setShowSuccessModal(false)}
       />
     </>
   );
