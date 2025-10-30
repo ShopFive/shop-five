@@ -21,7 +21,15 @@ export default function ImageGroupCard({
 }: ImageGroupCardProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [isDeleted, setIsDeleted] = useState(false);
+  
+  // Check if this product was deleted (persist across refresh)
+  const [isDeleted, setIsDeleted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const deleted = localStorage.getItem(`deleted_${group.id}`);
+      return deleted === 'true';
+    }
+    return false;
+  });
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -72,7 +80,11 @@ export default function ImageGroupCard({
   };
 
   const handleDelete = async (productId: string) => {
+    // Mark as deleted and save to localStorage
     setIsDeleted(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`deleted_${productId}`, 'true');
+    }
     
     try {
       const fileIds = extractFileIds();
@@ -84,6 +96,7 @@ export default function ImageGroupCard({
         fileIds 
       });
       
+      // ✅ Delete in background - don't wait for response
       fetch('/api/delete-product', {
         method: 'DELETE',
         headers: {
@@ -99,12 +112,17 @@ export default function ImageGroupCard({
         if (response.ok) {
           console.log('✅ Delete API success');
           
-          // ✅ Wait 2 seconds then refresh to remove from gallery
-          setTimeout(() => {
-            if (onDeleteSuccess) {
+          // Clean up localStorage after successful delete
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(`deleted_${productId}`);
+          }
+          
+          // Refresh gallery to remove deleted item
+          if (onDeleteSuccess) {
+            setTimeout(() => {
               onDeleteSuccess();
-            }
-          }, 2000);
+            }, 2000);
+          }
         } else {
           console.error('❌ Delete API failed');
         }
