@@ -67,7 +67,7 @@ export default function DeleteConfirmationModal({
     setStep(2);
   };
 
-  cconst handleFinalDelete = async () => {
+const handleFinalDelete = async () => {
     setIsDeleting(true);
     
     try {
