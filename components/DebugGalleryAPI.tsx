@@ -28,11 +28,11 @@ export default function DebugGalleryAPI() {
         });
       }
     } catch (error) {
-      console.error('API Error:', error);
-      setResponse({ error: error.message });
-    } finally {
-      setLoading(false);
-    }
+  console.error('API Error:', error);
+  setResponse({ error: error instanceof Error ? error.message : 'Unknown error' });
+} finally {
+  setLoading(false);
+}
   };
 
   return (
