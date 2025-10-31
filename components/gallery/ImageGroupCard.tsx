@@ -140,27 +140,38 @@ export default function ImageGroupCard({
   };
 
   const getDisplayData = () => {
-    if (isOldSystem(group)) {
-      return {
-        originalUrl: group.original.url,
-        originalFileSize: group.original.fileSize,
-        variations: group.variations,
-        variationsCount: group.variations.length
-      };
-    } else {
-      const variations = [
-        group.processed.front,
-        group.processed.back
-      ].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
+  if (isOldSystem(group)) {
+    return {
+      originalUrl: group.original.url,
+      originalFileSize: group.original.fileSize,
+      variations: group.variations,
+      variationsCount: group.variations.length
+    };
+  } else {
+    const variations = [
+      group.processed.front,
+      group.processed.back
+    ].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
+    
+    return {
+      // ✅ الحل: Fallback لـ Processed لو Original مفقود
+      originalUrl: group.original.front?.url 
+                || group.original.back?.url 
+                || group.processed.front?.url    // ← Fallback
+                || group.processed.back?.url     // ← Fallback
+                || '',
       
-      return {
-        originalUrl: group.original.front?.url || group.original.back?.url || '',
-        originalFileSize: group.original.front?.fileSize || group.original.back?.fileSize || 0,
-        variations: variations,
-        variationsCount: variations.length
-      };
-    }
-  };
+      originalFileSize: group.original.front?.fileSize 
+                     || group.original.back?.fileSize 
+                     || group.processed.front?.fileSize   // ← Fallback
+                     || group.processed.back?.fileSize    // ← Fallback
+                     || 0,
+      
+      variations: variations,
+      variationsCount: variations.length
+    };
+  }
+};
 
   const displayData = getDisplayData();
 
