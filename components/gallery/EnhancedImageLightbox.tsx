@@ -78,7 +78,11 @@ export default function EnhancedImageLightbox({
       } else if (currentVariationIndex === 1 && group.original.back) {
         originalUrl = group.original.back.url;
       } else {
-        originalUrl = group.original.front?.url || group.original.back?.url || '';
+        originalUrl = group.original.front?.url 
+                   || group.original.back?.url 
+                   || group.processed.front?.url 
+                   || group.processed.back?.url 
+                   || '';
       }
 
       // Count originals
