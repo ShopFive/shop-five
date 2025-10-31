@@ -71,31 +71,14 @@ export default function EnhancedImageLightbox({
         group.processed.back
       ].filter(img => img !== null) as Array<{ id: string; url: string; fileSize: number }>;
 
-      // Match original with current variation (مع Fallback محسّن)
+      // Match original with current variation
       let originalUrl = '';
-
-      // Try to match with current view first
-      if (currentVariationIndex === 0) {
-        // Front View: أولاً Front Original، ثم Front Processed
-        originalUrl = group.original.front?.url 
-                   || group.processed.front?.url 
-                   || group.original.back?.url 
-                   || group.processed.back?.url 
-                   || '';
-      } else if (currentVariationIndex === 1) {
-        // Back View: أولاً Back Original، ثم Back Processed
-        originalUrl = group.original.back?.url 
-                   || group.processed.back?.url 
-                   || group.original.front?.url 
-                   || group.processed.front?.url 
-                   || '';
+      if (currentVariationIndex === 0 && group.original.front) {
+        originalUrl = group.original.front.url;
+      } else if (currentVariationIndex === 1 && group.original.back) {
+        originalUrl = group.original.back.url;
       } else {
-        // Fallback: أي صورة متوفرة
-        originalUrl = group.original.front?.url 
-                   || group.original.back?.url 
-                   || group.processed.front?.url 
-                   || group.processed.back?.url 
-                   || '';
+        originalUrl = group.original.front?.url || group.original.back?.url || '';
       }
 
       // Count originals
