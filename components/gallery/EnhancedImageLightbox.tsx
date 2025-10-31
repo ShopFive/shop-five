@@ -73,12 +73,32 @@ export default function EnhancedImageLightbox({
 
       // Match original with current variation
       let originalUrl = '';
-      if (currentVariationIndex === 0 && group.original.front) {
-        originalUrl = group.original.front.url;
-      } else if (currentVariationIndex === 1 && group.original.back) {
-        originalUrl = group.original.back.url;
+
+      if (currentVariationIndex === 0) {
+        // Front View
+        if (group.original.front) {
+          originalUrl = group.original.front.url;
+        } else if (group.original.back) {
+          originalUrl = group.original.back.url;
+        } else {
+          originalUrl = group.processed.front?.url || '';
+        }
+      } else if (currentVariationIndex === 1) {
+        // Back View
+        if (group.original.back) {
+          originalUrl = group.original.back.url;
+        } else if (group.original.front) {
+          originalUrl = group.original.front.url;
+        } else {
+          originalUrl = group.processed.back?.url || '';
+        }
       } else {
-        originalUrl = group.original.front?.url || group.original.back?.url || '';
+        // Fallback
+        originalUrl = group.original.front?.url 
+                   || group.original.back?.url 
+                   || group.processed.front?.url 
+                   || group.processed.back?.url 
+                   || '';
       }
 
       // Count originals
